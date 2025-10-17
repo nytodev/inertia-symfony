@@ -1,0 +1,1 @@
+# Inertia.js Symfony Adapter

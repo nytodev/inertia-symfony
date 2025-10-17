@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<ruleset name="Inertia Symfony Bundle">
+    <description>PHP CodeSniffer configuration for inertia-symfony</description>
+
+    <!-- Files to check -->
+    <file>src</file>
+    <file>tests</file>
+
+    <!-- Exclude vendor and cache directories -->
+    <exclude-pattern>*/vendor/*</exclude-pattern>
+    <exclude-pattern>*/cache/*</exclude-pattern>
+    <exclude-pattern>*/var/*</exclude-pattern>
+
+    <!-- Use PSR-12 coding standard -->
+    <rule ref="PSR12"/>
+
+    <!-- Show progress -->
+    <arg name="colors"/>
+    <arg value="p"/>
+    <arg value="s"/>
+
+    <!-- Additional rules for better code quality -->
+    <rule ref="Generic.Arrays.DisallowLongArraySyntax"/>
+    <rule ref="Generic.Files.LineLength">
+        <properties>
+            <property name="lineLimit" value="120"/>
+            <property name="absoluteLineLimit" value="150"/>
+        </properties>
+    </rule>
+
+    <!-- Symfony specific recommendations -->
+    <rule ref="Generic.PHP.RequireStrictTypes"/>
+</ruleset>
