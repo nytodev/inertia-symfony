@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Nytodev\InertiaSymfony;
 
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
+use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\HttpKernel\Bundle\AbstractBundle;
 
 /**
@@ -34,6 +36,31 @@ final class NytodevInertiaSymfonyBundle extends AbstractBundle
                     ->info('Path to the root Inertia template')
                 ->end()
             ->end()
+        ;
+    }
+
+    /**
+     * {@inheritdoc}
+     *
+     * @param array<string, mixed> $config
+     */
+    public function loadExtension(
+        array $config,
+        ContainerConfigurator $container,
+        ContainerBuilder $builder
+    ): void {
+        // Import service definitions
+        $container->import('../config/services.yaml');
+
+        // Configure services with user configuration
+        $container->services()
+            ->get('nytodev_inertia.version_strategy')
+            ->arg('$version', $config['version'])
+        ;
+
+        $container->services()
+            ->get('nytodev_inertia.response_factory')
+            ->arg('$rootTemplate', $config['root_template'])
         ;
     }
 }

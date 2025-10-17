@@ -1,0 +1,92 @@
+services:
+  # Default configuration for services in this bundle
+  _defaults:
+    autowire: false
+    autoconfigure: false
+    public: false
+
+  # ===================================
+  # Version Strategy
+  # ===================================
+
+  nytodev_inertia.version_strategy:
+    class: Nytodev\InertiaSymfony\Service\StaticVersionStrategy
+    public: false
+    arguments:
+      $version: '1.0.0'  # Will be overridden by bundle configuration
+
+  # Alias for type-hinting in user applications
+  Nytodev\InertiaSymfony\Service\VersionStrategyInterface:
+    alias: nytodev_inertia.version_strategy
+    public: false
+
+  # ===================================
+  # Partial Props Resolver
+  # ===================================
+
+  nytodev_inertia.partial_props_resolver:
+    class: Nytodev\InertiaSymfony\Service\PartialPropsResolver
+    public: false
+
+  Nytodev\InertiaSymfony\Service\PartialPropsResolver:
+    alias: nytodev_inertia.partial_props_resolver
+    public: false
+
+  # ===================================
+  # Response Factory
+  # ===================================
+
+  nytodev_inertia.response_factory:
+    class: Nytodev\InertiaSymfony\Response\InertiaResponseFactory
+    public: false
+    arguments:
+      $twig: '@twig'
+      $rootTemplate: '@NytodevInertiaSymfony/inertia.html.twig'
+      $partialPropsResolver: '@nytodev_inertia.partial_props_resolver'
+
+  Nytodev\InertiaSymfony\Response\InertiaResponseFactory:
+    alias: nytodev_inertia.response_factory
+    public: false
+
+  # ===================================
+  # Inertia Manager (Public API)
+  # ===================================
+
+  nytodev_inertia.manager:
+    class: Nytodev\InertiaSymfony\Service\InertiaManager
+    public: true
+    arguments:
+      $responseFactory: '@nytodev_inertia.response_factory'
+      $versionStrategy: '@nytodev_inertia.version_strategy'
+      $requestStack: '@request_stack'
+
+  # Alias for type-hinting in controllers
+  Nytodev\InertiaSymfony\Service\InertiaManager:
+    alias: nytodev_inertia.manager
+    public: false
+
+  # ===================================
+  # Event Listener
+  # ===================================
+
+  nytodev_inertia.listener:
+    class: Nytodev\InertiaSymfony\EventListener\InertiaListener
+    public: false
+    arguments:
+      $versionStrategy: '@nytodev_inertia.version_strategy'
+    tags:
+      - { name: kernel.event_subscriber }
+
+  # ===================================
+  # Twig Extension
+  # ===================================
+
+  nytodev_inertia.twig_extension:
+    class: Nytodev\InertiaSymfony\Twig\InertiaExtension
+    public: false
+    tags:
+      - { name: twig.extension }
+
+  Nytodev\InertiaSymfony\Twig\InertiaExtension:
+    alias: nytodev_inertia.twig_extension
+    public: false
