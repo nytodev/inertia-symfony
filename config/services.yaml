@@ -1,0 +1,59 @@
+services:
+
+    # -------------------------------------------------------------------------
+    # Response builder: constructs the Inertia page object and returns
+    # either an HTML response (first visit) or a JSON response (XHR visit).
+    # -------------------------------------------------------------------------
+    inertia.response:
+        class: Nytodev\InertiaBundle\Response\InertiaResponse
+        public: false
+        arguments:
+            - '@twig'
+            - '%inertia.root_view%'
+
+    # -------------------------------------------------------------------------
+    # Core service: manages shared props and delegates to InertiaResponse.
+    # -------------------------------------------------------------------------
+    inertia.service:
+        class: Nytodev\InertiaBundle\Service\Inertia
+        public: false
+        arguments:
+            - '@request_stack'
+            - '@twig'
+            - '@inertia.response'
+            - '%inertia.root_view%'
+            - '%inertia.version%'
+            - '%inertia.ssr_enabled%'
+            - '%inertia.ssr_url%'
+
+    # -------------------------------------------------------------------------
+    # Event listener: kernel.request (version check → 409) +
+    #                 kernel.response (302 → 303 conversion)
+    # -------------------------------------------------------------------------
+    inertia.listener:
+        class: Nytodev\InertiaBundle\EventListener\InertiaListener
+        public: false
+        arguments:
+            - '@inertia.service'
+        tags:
+            - { name: kernel.event_subscriber }
+
+    # -------------------------------------------------------------------------
+    # Twig extension: inertia(page) and inertiaHead(page) template functions
+    # -------------------------------------------------------------------------
+    inertia.twig_extension:
+        class: Nytodev\InertiaBundle\Twig\InertiaTwigExtension
+        public: false
+        tags:
+            - { name: twig.extension }
+
+    # =========================================================================
+    # Public aliases for autowiring — inject the FQCN type-hint in controllers
+    # =========================================================================
+    Nytodev\InertiaBundle\Service\Inertia:
+        alias: inertia.service
+        public: true
+
+    Nytodev\InertiaBundle\Response\InertiaResponse:
+        alias: inertia.response
+        public: true

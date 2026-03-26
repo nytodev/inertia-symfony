@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
+
+  "permissions": {
+    "allow": [
+      "Bash(cat:*)",
+      "Bash(cd:*)",
+      "Bash(composer:*)",
+      "Bash(curl:*)",
+      "Bash(diff:*)",
+      "Bash(echo:*)",
+      "Bash(find:*)",
+      "Bash(gh:*)",
+      "Bash(git:*)",
+      "Bash(grep:*)",
+      "Bash(head:*)",
+      "Bash(ls:*)",
+      "Bash(mkdir:*)",
+      "Bash(mv:*)",
+      "Bash(php:*)",
+      "Bash(php-cs-fixer:*)",
+      "Bash(phpstan:*)",
+      "Bash(phpunit:*)",
+      "Bash(pwd)",
+      "Bash(symfony:*)",
+      "Bash(tail:*)",
+      "Bash(tree:*)",
+      "Bash(vendor/bin/php-cs-fixer:*)",
+      "Bash(vendor/bin/phpstan:*)",
+      "Bash(vendor/bin/phpunit:*)",
+      "Bash(wc:*)",
+      "Bash(which:*)"
+    ],
+    "deny": [
+      "Bash(rm:-rf /*)",
+      "Bash(chmod:777 *)",
+      "Read(./.env)",
+      "Read(./.env.local)",
+      "Read(./.env.*.local)"
+    ],
+    "defaultMode": "acceptEdits"
+  },
+
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "case \"$CLAUDE_FILE_PATH\" in *.php) vendor/bin/php-cs-fixer fix --quiet \"$CLAUDE_FILE_PATH\" 2>/dev/null || true ;; esac",
+            "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "case \"$CLAUDE_FILE_PATH\" in *.yaml|*.yml) php bin/console lint:yaml \"$CLAUDE_FILE_PATH\" 2>/dev/null || true ;; esac",
+            "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "case \"$CLAUDE_FILE_PATH\" in *.php) vendor/bin/phpstan analyse \"$CLAUDE_FILE_PATH\" --level=8 --no-progress 2>/dev/null || true ;; esac",
+            "timeout": 60
+          }
+        ]
+      }
+    ]
+  },
+
+  "enabledPlugins": {
+    "php-lsp@claude-plugins-official": true,
+    "context7@claude-plugins-official": true,
+    "code-review@claude-plugins-official": true,
+    "security-guidance@claude-plugins-official": true
+  },
+
+  "alwaysThinkingEnabled": true
+}
