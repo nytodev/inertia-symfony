@@ -43,7 +43,12 @@ final class InertiaTwigExtension extends AbstractExtension
      */
     public function renderInertia(array $page): string
     {
-        // TODO: implement
+        $json = json_encode(
+            $page,
+            \JSON_HEX_TAG | \JSON_HEX_APOS | \JSON_HEX_AMP | \JSON_HEX_QUOT | \JSON_THROW_ON_ERROR,
+        );
+
+        return '<div id="app" data-page=\''.$json.'\'></div>';
     }
 
     /**

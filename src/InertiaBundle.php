@@ -25,6 +25,9 @@ final class InertiaBundle extends AbstractBundle
         $definition->import('../config/definition.php');
     }
 
+    /**
+     * @param array<string, mixed> $config
+     */
     public function loadExtension(array $config, ContainerConfigurator $container, ContainerBuilder $builder): void
     {
         $container->import('../config/services.yaml');

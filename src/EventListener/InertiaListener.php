@@ -6,6 +6,8 @@ namespace Nytodev\InertiaBundle\EventListener;
 
 use Nytodev\InertiaBundle\Service\Inertia;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\Session\FlashBagAwareSessionInterface;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\Event\ResponseEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
@@ -31,26 +33,74 @@ final class InertiaListener implements EventSubscriberInterface
     public static function getSubscribedEvents(): array
     {
         return [
-            KernelEvents::REQUEST  => ['onKernelRequest', 20],
+            KernelEvents::REQUEST => ['onKernelRequest', 20],
             KernelEvents::RESPONSE => ['onKernelResponse', 0],
         ];
     }
 
     public function onKernelRequest(RequestEvent $event): void
     {
-        // TODO: implement
-        // - Return early if not main request
-        // - Return early if not Inertia XHR (no X-Inertia header)
-        // - Return early if not GET
-        // - Compare X-Inertia-Version with $this->inertia->version()
-        // - If mismatch: reflash session flash, return 409 with X-Inertia-Location
+        if (!$event->isMainRequest()) {
+            return;
+        }
+
+        $request = $event->getRequest();
+
+        if (!$request->headers->has('X-Inertia')) {
+            return;
+        }
+
+        if (!$request->isMethod('GET')) {
+            return;
+        }
+
+        $serverVersion = $this->inertia->version();
+
+        if (null === $serverVersion) {
+            return;
+        }
+
+        $clientVersion = $request->headers->get('X-Inertia-Version', '');
+
+        if ($clientVersion === $serverVersion) {
+            return;
+        }
+
+        // Reflash session flash data so it is not lost across the 409 redirect.
+        if ($request->hasSession()) {
+            $session = $request->getSession();
+            if ($session instanceof FlashBagAwareSessionInterface) {
+                $flashes = $session->getFlashBag()->peekAll();
+                foreach ($flashes as $type => $messages) {
+                    foreach ($messages as $message) {
+                        $session->getFlashBag()->add($type, $message);
+                    }
+                }
+            }
+        }
+
+        $event->setResponse(new Response('', 409, [
+            'X-Inertia-Location' => $request->getUri(),
+        ]));
     }
 
     public function onKernelResponse(ResponseEvent $event): void
     {
-        // TODO: implement
-        // - Return early if not main request
-        // - Convert 302 → 303 for non-GET/HEAD Inertia requests
-        // - Flush once-props after response is finalized
+        if (!$event->isMainRequest()) {
+            return;
+        }
+
+        $request = $event->getRequest();
+        $response = $event->getResponse();
+
+        if (
+            $request->headers->has('X-Inertia')
+            && 302 === $response->getStatusCode()
+            && \in_array($request->getMethod(), ['PUT', 'PATCH', 'DELETE'], true)
+        ) {
+            $response->setStatusCode(303);
+        }
+
+        $this->inertia->flushSharedOnceProps();
     }
 }

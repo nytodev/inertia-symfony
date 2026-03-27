@@ -23,11 +23,15 @@ final class Inertia
 
     public function __construct(
         private readonly RequestStack $requestStack,
+        /** @phpstan-ignore property.onlyWritten (reserved for SSR phase 2) */
         private readonly Environment $twig,
         private readonly InertiaResponse $inertiaResponse,
+        /** @phpstan-ignore property.onlyWritten (reserved for SSR phase 2) */
         private readonly string $rootView,
         private readonly ?string $version,
+        /** @phpstan-ignore property.onlyWritten (reserved for SSR phase 2) */
         private readonly bool $ssrEnabled,
+        /** @phpstan-ignore property.onlyWritten (reserved for SSR phase 2) */
         private readonly string $ssrUrl,
     ) {
     }
@@ -40,7 +44,18 @@ final class Inertia
      */
     public function render(string $component, array $props = [], ?Response $response = null): Response
     {
-        // TODO: implement
+        $request = $this->requestStack->getCurrentRequest()
+            ?? throw new \LogicException('No current request.');
+
+        $mergedProps = array_merge($this->sharedProps, $this->sharedOnceProps, $props);
+
+        return $this->inertiaResponse->build(
+            $component,
+            $mergedProps,
+            $request->getRequestUri(),
+            $this->version,
+            $request,
+        );
     }
 
     /**
