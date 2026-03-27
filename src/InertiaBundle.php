@@ -34,10 +34,14 @@ final class InertiaBundle extends AbstractBundle
 
         // $config is already merged and validated by AbstractBundle — use directly.
         // Never call processConfiguration() here.
-        $container->parameters()
-            ->set('inertia.root_view', $config['root_view'])
-            ->set('inertia.version', $config['version'])
-            ->set('inertia.ssr_enabled', $config['ssr_enabled'])
-            ->set('inertia.ssr_url', $config['ssr_url']);
+        // Inject config values directly onto service definitions (not as global container parameters).
+        $services = $container->services();
+        $services->get('inertia.response')
+            ->arg('$rootView', $config['root_view']);
+        $services->get('inertia.service')
+            ->arg('$rootView', $config['root_view'])
+            ->arg('$version', $config['version'])
+            ->arg('$ssrEnabled', $config['ssr_enabled'])
+            ->arg('$ssrUrl', $config['ssr_url']);
     }
 }

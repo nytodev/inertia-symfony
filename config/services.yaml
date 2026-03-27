@@ -9,7 +9,6 @@ services:
         public: false
         arguments:
             - '@twig'
-            - '%inertia.root_view%'
 
     # -------------------------------------------------------------------------
     # Core service: manages shared props and delegates to InertiaResponse.
@@ -21,10 +20,6 @@ services:
             - '@request_stack'
             - '@twig'
             - '@inertia.response'
-            - '%inertia.root_view%'
-            - '%inertia.version%'
-            - '%inertia.ssr_enabled%'
-            - '%inertia.ssr_url%'
 
     # -------------------------------------------------------------------------
     # Event listener: kernel.request (version check → 409) +
@@ -54,6 +49,3 @@ services:
         alias: inertia.service
         public: true
 
-    Nytodev\InertiaBundle\Response\InertiaResponse:
-        alias: inertia.response
-        public: true
