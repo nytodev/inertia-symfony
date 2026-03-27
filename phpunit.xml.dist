@@ -4,6 +4,7 @@
          bootstrap="vendor/autoload.php"
          colors="true"
          failOnWarning="true"
+         beStrictAboutOutputDuringTests="false"
 >
     <testsuites>
         <testsuite name="Unit">
@@ -27,4 +28,9 @@
             <text outputFile="php://stdout" showUncoveredFiles="false"/>
         </report>
     </coverage>
+    <php>
+        <env name="KERNEL_CLASS" value="Nytodev\InertiaBundle\Tests\Functional\app\TestKernel"/>
+        <env name="APP_ENV" value="test"/>
+        <env name="APP_DEBUG" value="0"/>
+    </php>
 </phpunit>
