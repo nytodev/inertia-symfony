@@ -9,6 +9,7 @@ use Nytodev\InertiaBundle\Props\LazyProp;
 use Nytodev\InertiaBundle\Props\MergeProp;
 use Nytodev\InertiaBundle\Props\OnceProp;
 use Nytodev\InertiaBundle\Response\InertiaResponse;
+use Nytodev\InertiaBundle\Twig\InertiaTwigExtension;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Twig\Environment;
@@ -23,6 +24,7 @@ final class InertiaResponseTest extends TestCase
         $twig = new Environment(new ArrayLoader([
             'base.html.twig' => '<body>{{ inertia(page) }}</body>',
         ]));
+        $twig->addExtension(new InertiaTwigExtension());
         $this->response = new InertiaResponse($twig, 'base.html.twig');
     }
 
@@ -238,5 +240,83 @@ final class InertiaResponseTest extends TestCase
 
         self::assertArrayHasKey('foo', $data['props']);
         self::assertArrayNotHasKey('baz', $data['props']);
+    }
+
+    public function testBuildHtmlFirstVisitWithInertiaExtensionRendersDataPageDiv(): void
+    {
+        $request = Request::create('/home');
+
+        $result = $this->response->build('Home', ['name' => 'Tony'], '/home', null, $request);
+
+        self::assertSame(200, $result->getStatusCode());
+        self::assertStringContainsString('data-page', (string) $result->getContent());
+        self::assertStringContainsString('Home', (string) $result->getContent());
+    }
+
+    public function testBuildWithDeferPropIncludesDeferredGroupInPageObject(): void
+    {
+        $request = Request::create('/home');
+        $request->headers->set('X-Inertia', 'true');
+
+        $result = $this->response->build('Home', [
+            'users' => new DeferProp(static fn () => ['Alice']),
+            'posts' => new DeferProp(static fn () => ['B'], 'sidebar'),
+        ], '/home', null, $request);
+
+        $data = json_decode((string) $result->getContent(), true);
+        self::assertIsArray($data);
+        self::assertArrayHasKey('deferredProps', $data);
+        self::assertContains('users', $data['deferredProps']['default']);
+        self::assertContains('posts', $data['deferredProps']['sidebar']);
+    }
+
+    public function testBuildWithAllMergePropTypesTracksEachCategoryInPageObject(): void
+    {
+        $request = Request::create('/home');
+        $request->headers->set('X-Inertia', 'true');
+
+        $result = $this->response->build('Home', [
+            'regular' => new MergeProp(static fn () => [1, 2]),
+            'prepended' => new MergeProp(static fn () => [0], prepend: true),
+            'deep' => new MergeProp(static fn () => ['k' => 'v'], deep: true),
+        ], '/home', null, $request);
+
+        $data = json_decode((string) $result->getContent(), true);
+        self::assertIsArray($data);
+        self::assertContains('regular', $data['mergeProps']);
+        self::assertContains('prepended', $data['prependProps']);
+        self::assertContains('deep', $data['deepMergeProps']);
+    }
+
+    public function testBuildPageObjectWithNonEmptyMergeArraysIncludesAllKeys(): void
+    {
+        $page = $this->response->buildPageObject(
+            'Home', [], '/home', null, false, false,
+            [], ['a'], ['b'], ['c'],
+        );
+
+        self::assertSame(['a'], $page['mergeProps']);
+        self::assertSame(['b'], $page['prependProps']);
+        self::assertSame(['c'], $page['deepMergeProps']);
+    }
+
+    public function testBuildWithSpacesInPartialDataHeaderParsesAndTrimsCorrectly(): void
+    {
+        $request = Request::create('/home');
+        $request->headers->set('X-Inertia', 'true');
+        $request->headers->set('X-Inertia-Partial-Data', 'foo , bar , baz');
+        $request->headers->set('X-Inertia-Partial-Component', 'Home');
+
+        $result = $this->response->build('Home', [
+            'foo' => 1, 'bar' => 2, 'baz' => 3, 'qux' => 4,
+        ], '/home', null, $request);
+
+        $data = json_decode((string) $result->getContent(), true);
+        self::assertIsArray($data);
+        self::assertIsArray($data['props']);
+        self::assertArrayHasKey('foo', $data['props']);
+        self::assertArrayHasKey('bar', $data['props']);
+        self::assertArrayHasKey('baz', $data['props']);
+        self::assertArrayNotHasKey('qux', $data['props']);
     }
 }

@@ -11,6 +11,9 @@ use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\Session\Session;
+use Symfony\Component\HttpFoundation\Session\SessionInterface;
+use Symfony\Component\HttpFoundation\Session\Storage\MockArraySessionStorage;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\Event\ResponseEvent;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
@@ -190,5 +193,44 @@ final class InertiaListenerTest extends TestCase
         $this->listener->onKernelResponse($event);
 
         self::assertSame([], $this->inertia->getSharedOnceProps());
+    }
+
+    public function testOnKernelRequestOn409WithFlashBagAwareSessionReflashesFlashData(): void
+    {
+        $session = new Session(new MockArraySessionStorage());
+        $session->getFlashBag()->add('notice', 'Keep me');
+        $session->getFlashBag()->add('error', 'Keep me too');
+
+        $request = Request::create('http://example.com/page');
+        $request->headers->set('X-Inertia', 'true');
+        $request->headers->set('X-Inertia-Version', 'old-version');
+        $request->setSession($session);
+
+        $event = new RequestEvent($this->makeKernel(), $request, HttpKernelInterface::MAIN_REQUEST);
+        $this->listener->onKernelRequest($event);
+
+        self::assertNotNull($event->getResponse());
+        self::assertSame(409, $event->getResponse()->getStatusCode());
+        $remaining = $session->getFlashBag()->peekAll();
+        self::assertArrayHasKey('notice', $remaining);
+        self::assertArrayHasKey('error', $remaining);
+        self::assertContains('Keep me', $remaining['notice']);
+        self::assertContains('Keep me too', $remaining['error']);
+    }
+
+    public function testOnKernelRequestOn409WithNonFlashBagAwareSessionReturns409WithoutError(): void
+    {
+        $session = $this->createMock(SessionInterface::class);
+
+        $request = Request::create('http://example.com/page');
+        $request->headers->set('X-Inertia', 'true');
+        $request->headers->set('X-Inertia-Version', 'old-version');
+        $request->setSession($session);
+
+        $event = new RequestEvent($this->makeKernel(), $request, HttpKernelInterface::MAIN_REQUEST);
+        $this->listener->onKernelRequest($event);
+
+        self::assertNotNull($event->getResponse());
+        self::assertSame(409, $event->getResponse()->getStatusCode());
     }
 }
