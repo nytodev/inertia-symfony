@@ -60,9 +60,9 @@ final class InertiaListener implements EventSubscriberInterface
             return;
         }
 
-        $clientVersion = $request->headers->get('X-Inertia-Version', '');
+        $clientVersion = $request->headers->get('X-Inertia-Version');
 
-        if ($clientVersion === $serverVersion) {
+        if (null === $clientVersion || $clientVersion === $serverVersion) {
             return;
         }
 
