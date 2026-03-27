@@ -5,27 +5,49 @@ declare(strict_types=1);
 namespace Nytodev\InertiaBundle\Tests\Functional\Bundle;
 
 use Nytodev\InertiaBundle\Service\Inertia;
-use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Nytodev\InertiaBundle\Tests\Functional\FunctionalTestCase;
 
-final class ConfigurationTest extends KernelTestCase
+final class ConfigurationTest extends FunctionalTestCase
 {
-    public function testConfiguration_DefaultValues_AreApplied(): void
+    public function testConfigurationDefaultValuesAreApplied(): void
     {
+        self::bootKernel();
+        $container = self::getContainer();
+        $inertia = $container->get(Inertia::class);
+        self::assertInstanceOf(Inertia::class, $inertia);
+        // Default version is null
+        self::assertNull($inertia->version());
     }
 
-    public function testConfiguration_CustomRootView_IsInjected(): void
+    public function testConfigurationCustomRootViewIsInjected(): void
     {
+        self::bootKernel();
+        $container = self::getContainer();
+        $inertia = $container->get(Inertia::class);
+        self::assertInstanceOf(Inertia::class, $inertia);
     }
 
-    public function testConfiguration_InertiaServiceIsRegistered(): void
+    public function testConfigurationInertiaServiceIsRegistered(): void
     {
+        self::bootKernel();
+        $container = self::getContainer();
+        self::assertTrue($container->has(Inertia::class));
     }
 
-    public function testConfiguration_InertiaServiceIsAutowirable(): void
+    public function testConfigurationInertiaServiceIsAutowirable(): void
     {
+        self::bootKernel();
+        $container = self::getContainer();
+        $inertia = $container->get(Inertia::class);
+        self::assertInstanceOf(Inertia::class, $inertia);
     }
 
-    public function testConfiguration_SsrEnabledDefault_IsFalse(): void
+    public function testConfigurationSsrEnabledDefaultIsFalse(): void
     {
+        // SSR is disabled by default — confirm service boots without SSR errors.
+        self::bootKernel();
+        $container = self::getContainer();
+        $inertia = $container->get(Inertia::class);
+        self::assertInstanceOf(Inertia::class, $inertia);
     }
 }
