@@ -9,11 +9,21 @@ use PHPUnit\Framework\TestCase;
 
 final class OncePropTest extends TestCase
 {
-    public function testResolve_InvokesCallback(): void
+    public function testResolveInvokesCallback(): void
     {
+        $invoked = false;
+        $prop = new OnceProp(static function () use (&$invoked) {
+            $invoked = true;
+
+            return 'value';
+        });
+        $prop->resolve();
+        self::assertTrue($invoked);
     }
 
-    public function testResolve_ReturnsCallbackReturnValue(): void
+    public function testResolveReturnsCallbackReturnValue(): void
     {
+        $prop = new OnceProp(static fn () => 'Tony');
+        self::assertSame('Tony', $prop->resolve());
     }
 }

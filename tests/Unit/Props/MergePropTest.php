@@ -9,23 +9,45 @@ use PHPUnit\Framework\TestCase;
 
 final class MergePropTest extends TestCase
 {
-    public function testIsPrepend_WithDefaultValue_ReturnsFalse(): void
+    public function testIsPrependWithDefaultValueReturnsFalse(): void
     {
+        $prop = new MergeProp(static fn () => []);
+        self::assertFalse($prop->isPrepend());
     }
 
-    public function testIsPrepend_WhenTrue_ReturnsTrue(): void
+    public function testIsPrependWhenTrueReturnsTrue(): void
     {
+        $prop = new MergeProp(static fn () => [], prepend: true);
+        self::assertTrue($prop->isPrepend());
     }
 
-    public function testIsDeep_WithDefaultValue_ReturnsFalse(): void
+    public function testIsDeepWithDefaultValueReturnsFalse(): void
     {
+        $prop = new MergeProp(static fn () => []);
+        self::assertFalse($prop->isDeep());
     }
 
-    public function testIsDeep_WhenTrue_ReturnsTrue(): void
+    public function testIsDeepWhenTrueReturnsTrue(): void
     {
+        $prop = new MergeProp(static fn () => [], deep: true);
+        self::assertTrue($prop->isDeep());
     }
 
-    public function testResolve_InvokesCallback(): void
+    public function testResolveInvokesCallback(): void
     {
+        $invoked = false;
+        $prop = new MergeProp(static function () use (&$invoked) {
+            $invoked = true;
+
+            return [];
+        });
+        $prop->resolve();
+        self::assertTrue($invoked);
+    }
+
+    public function testResolveReturnsCallbackReturnValue(): void
+    {
+        $prop = new MergeProp(static fn () => [1, 2, 3]);
+        self::assertSame([1, 2, 3], $prop->resolve());
     }
 }
