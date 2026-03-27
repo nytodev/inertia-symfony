@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace Nytodev\InertiaBundle\Tests\Unit\Service;
 
+use Nytodev\InertiaBundle\Props\DeferProp;
+use Nytodev\InertiaBundle\Props\LazyProp;
+use Nytodev\InertiaBundle\Props\MergeProp;
+use Nytodev\InertiaBundle\Props\OnceProp;
 use Nytodev\InertiaBundle\Response\InertiaResponse;
 use Nytodev\InertiaBundle\Service\Inertia;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -158,5 +162,84 @@ final class InertiaTest extends TestCase
 
         $this->expectException(\LogicException::class);
         $service->render('Home', []);
+    }
+
+    public function testLazyWithClosureReturnsLazyPropInstance(): void
+    {
+        $service = $this->makeService();
+        $callback = static fn () => 'lazy-value';
+
+        $result = $service->lazy($callback);
+
+        self::assertInstanceOf(LazyProp::class, $result);
+        self::assertSame('lazy-value', $result->resolve());
+    }
+
+    public function testDeferWithClosureReturnsDeferPropWithDefaultGroup(): void
+    {
+        $service = $this->makeService();
+        $callback = static fn () => 'deferred-value';
+
+        $result = $service->defer($callback);
+
+        self::assertInstanceOf(DeferProp::class, $result);
+        self::assertSame('deferred-value', $result->resolve());
+        self::assertSame('default', $result->getGroup());
+    }
+
+    public function testDeferWithGroupReturnsDeferPropWithCustomGroup(): void
+    {
+        $service = $this->makeService();
+        $callback = static fn () => 'value';
+
+        $result = $service->defer($callback, 'my-group');
+
+        self::assertSame('my-group', $result->getGroup());
+    }
+
+    public function testOnceWithClosureReturnsOncePropInstance(): void
+    {
+        $service = $this->makeService();
+        $callback = static fn () => 'once-value';
+
+        $result = $service->once($callback);
+
+        self::assertInstanceOf(OnceProp::class, $result);
+        self::assertSame('once-value', $result->resolve());
+    }
+
+    public function testMergeWithClosureReturnsMergePropInstance(): void
+    {
+        $service = $this->makeService();
+        $callback = static fn () => ['a', 'b'];
+
+        $result = $service->merge($callback);
+
+        self::assertInstanceOf(MergeProp::class, $result);
+        self::assertSame(['a', 'b'], $result->resolve());
+        self::assertFalse($result->isPrepend());
+        self::assertFalse($result->isDeep());
+    }
+
+    public function testMergeWithPrependFlagReturnsMergePropWithPrependTrue(): void
+    {
+        $service = $this->makeService();
+        $callback = static fn () => [];
+
+        $result = $service->merge($callback, prepend: true);
+
+        self::assertTrue($result->isPrepend());
+        self::assertFalse($result->isDeep());
+    }
+
+    public function testMergeWithDeepFlagReturnsMergePropWithDeepTrue(): void
+    {
+        $service = $this->makeService();
+        $callback = static fn () => [];
+
+        $result = $service->merge($callback, deep: true);
+
+        self::assertFalse($result->isPrepend());
+        self::assertTrue($result->isDeep());
     }
 }

@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace Nytodev\InertiaBundle\Service;
 
+use Nytodev\InertiaBundle\Props\DeferProp;
+use Nytodev\InertiaBundle\Props\LazyProp;
+use Nytodev\InertiaBundle\Props\MergeProp;
+use Nytodev\InertiaBundle\Props\OnceProp;
 use Nytodev\InertiaBundle\Response\InertiaResponse;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
@@ -104,5 +108,25 @@ final class Inertia
     public function flushSharedOnceProps(): void
     {
         $this->sharedOnceProps = [];
+    }
+
+    public function lazy(\Closure $callback): LazyProp
+    {
+        return new LazyProp($callback);
+    }
+
+    public function defer(\Closure $callback, string $group = 'default'): DeferProp
+    {
+        return new DeferProp($callback, $group);
+    }
+
+    public function once(\Closure $callback): OnceProp
+    {
+        return new OnceProp($callback);
+    }
+
+    public function merge(\Closure $callback, bool $prepend = false, bool $deep = false): MergeProp
+    {
+        return new MergeProp($callback, $prepend, $deep);
     }
 }
