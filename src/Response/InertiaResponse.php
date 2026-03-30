@@ -71,7 +71,7 @@ final class InertiaResponse
             $resolved['errors'] = [];
         }
 
-        // BUG 3 fix: collect merge arrays AFTER resolving+filtering so excluded keys are absent.
+        // Collect merge arrays AFTER resolving+filtering so excluded keys are absent.
         [$mergeProps, $prependProps, $deepMergeProps, $matchPropsOn] = $this->collectMergeArrays($props, $resolved);
 
         // Collect onceProps metadata for keys that survived into resolved props.
@@ -163,8 +163,6 @@ final class InertiaResponse
             }
 
             // LazyProp: skip on full render; on partial, include only if explicitly in $only.
-            // BUG 1 fix: check $except before resolving.
-            // BUG 4 fix: require [] !== $only — if $only is empty, LazyProp is never resolved.
             if ($value instanceof LazyProp) {
                 if (!$isPartial || [] === $only || !\in_array($key, $only, true)) {
                     continue;
