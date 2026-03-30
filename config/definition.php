@@ -22,7 +22,6 @@ return static function (DefinitionConfigurator $definition): void {
             ->end()
             ->scalarNode('ssr_url')
                 ->defaultValue('http://127.0.0.1:13714')
-                ->cannotBeEmpty()
                 ->info('URL of the SSR server (used only when ssr_enabled is true).')
             ->end()
         ->end()
