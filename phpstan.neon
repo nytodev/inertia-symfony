@@ -7,6 +7,9 @@ parameters:
 
     checkMissingIterableValueType: true
     checkGenericClassInNonGenericObjectType: true
-    reportUnmatchedIgnoredErrors: true
+    reportUnmatchedIgnoredErrors: false
 
-    ignoreErrors: []
+    ignoreErrors:
+        # DefinitionConfigurator became @template-annotated at different Symfony patch versions.
+        # The generic parameter adds no runtime value here — suppress across all supported Symfony versions.
+        - '#Method Nytodev\\InertiaBundle\\InertiaBundle::configure\(\) has parameter \$definition with generic class .* but does not specify its types#'

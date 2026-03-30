@@ -41,25 +41,22 @@ jobs:
           tools: composer:v2
           coverage: none
 
-      - name: Pin Symfony version
-        uses: nick-fields/retry@v3
-        with:
-          timeout_minutes: 5
-          max_attempts: 5
-          command: composer require "symfony/framework-bundle=^${{ matrix.symfony }}" --no-interaction --no-update
-
       - name: Install dependencies
         uses: nick-fields/retry@v3
         with:
           timeout_minutes: 5
           max_attempts: 5
           command: composer update --${{ matrix.stability }} --no-interaction
+        env:
+          SYMFONY_REQUIRE: ${{ matrix.symfony }}.*
 
       - name: PHPStan (src/)
         run: vendor/bin/phpstan analyse src/ --level=8 --no-progress
 
       - name: PHP CS Fixer (dry-run)
         run: vendor/bin/php-cs-fixer fix --dry-run --diff --no-interaction
+        env:
+          PHP_CS_FIXER_IGNORE_ENV: 1
 
       - name: PHPUnit
         run: vendor/bin/phpunit --no-coverage
