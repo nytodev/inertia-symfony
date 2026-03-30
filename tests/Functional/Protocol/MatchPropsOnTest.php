@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Nytodev\InertiaBundle\Tests\Functional\Protocol;
 
-use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Nytodev\InertiaBundle\Tests\Functional\FunctionalTestCase;
 
-final class MatchPropsOnTest extends WebTestCase
+final class MatchPropsOnTest extends FunctionalTestCase
 {
     public function testMatchPropsOnWhenMergePropHasMatchOnIsInPageObject(): void
     {
@@ -68,5 +68,41 @@ final class MatchPropsOnTest extends WebTestCase
 
         $data = json_decode((string) $client->getResponse()->getContent(), true);
         $this->assertArrayNotHasKey('matchPropsOn', $data);
+    }
+
+    public function testMatchPropsOnWhenPropSurvivesPartialReloadIsPresent(): void
+    {
+        $client = self::createClient();
+        $client->request('GET', '/test/match-props-on', [], [], [
+            'HTTP_X-Inertia' => 'true',
+            'HTTP_X-Inertia-Version' => '',
+            'HTTP_X-Inertia-Partial-Data' => 'merge_a',
+            'HTTP_X-Inertia-Partial-Component' => 'TestComponent',
+        ]);
+
+        $this->assertResponseIsSuccessful();
+
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        $this->assertArrayHasKey('matchPropsOn', $data);
+        $this->assertSame(['merge_a.id'], $data['matchPropsOn']);
+    }
+
+    public function testMatchPropsOnWithDeepMergePropAppearsInBothDeepMergePropsAndMatchPropsOn(): void
+    {
+        $client = self::createClient();
+        $client->request('GET', '/test/match-props-on-deep', [], [], [
+            'HTTP_X-Inertia' => 'true',
+            'HTTP_X-Inertia-Version' => '',
+        ]);
+
+        $this->assertResponseIsSuccessful();
+
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        $this->assertArrayHasKey('deepMergeProps', $data);
+        $this->assertContains('merge_a', $data['deepMergeProps']);
+        $this->assertArrayHasKey('matchPropsOn', $data);
+        $this->assertSame(['merge_a.id'], $data['matchPropsOn']);
+        $this->assertArrayNotHasKey('mergeProps', $data);
+        $this->assertArrayNotHasKey('prependProps', $data);
     }
 }
