@@ -274,9 +274,8 @@ final class InertiaResponse
             } else {
                 $mergeProps[] = $key;
             }
-            $matchOn = $prop->getMatchOn();
-            if (null !== $matchOn) {
-                $matchPropsOn[] = $key.'.'.$matchOn;
+            foreach ($prop->getMatchOn() as $field) {
+                $matchPropsOn[] = $key.'.'.$field;
             }
         }
 

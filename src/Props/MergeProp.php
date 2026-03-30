@@ -10,12 +10,19 @@ namespace Nytodev\InertiaBundle\Props;
  */
 final class MergeProp
 {
+    /** @var string[] */
+    private readonly array $matchOn;
+
+    /**
+     * @param string|string[] $matchOn one or more field names used for client-side deduplication
+     */
     public function __construct(
         private readonly \Closure $callback,
         private readonly bool $prepend = false,
         private readonly bool $deep = false,
-        private readonly ?string $matchOn = null,
+        string|array $matchOn = [],
     ) {
+        $this->matchOn = \is_string($matchOn) ? [$matchOn] : array_values($matchOn);
     }
 
     public function resolve(): mixed
@@ -33,7 +40,10 @@ final class MergeProp
         return $this->deep;
     }
 
-    public function getMatchOn(): ?string
+    /**
+     * @return string[]
+     */
+    public function getMatchOn(): array
     {
         return $this->matchOn;
     }

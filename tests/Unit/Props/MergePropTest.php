@@ -51,15 +51,21 @@ final class MergePropTest extends TestCase
         self::assertSame([1, 2, 3], $prop->resolve());
     }
 
-    public function testGetMatchOnByDefaultReturnsNull(): void
+    public function testGetMatchOnByDefaultReturnsEmptyArray(): void
     {
         $prop = new MergeProp(static fn () => []);
-        self::assertNull($prop->getMatchOn());
+        self::assertSame([], $prop->getMatchOn());
     }
 
-    public function testGetMatchOnWhenSetReturnsValue(): void
+    public function testGetMatchOnWithStringReturnsNormalizedArray(): void
     {
         $prop = new MergeProp(static fn () => [], matchOn: 'id');
-        self::assertSame('id', $prop->getMatchOn());
+        self::assertSame(['id'], $prop->getMatchOn());
+    }
+
+    public function testGetMatchOnWithArrayReturnsArray(): void
+    {
+        $prop = new MergeProp(static fn () => [], matchOn: ['id', 'uuid']);
+        self::assertSame(['id', 'uuid'], $prop->getMatchOn());
     }
 }

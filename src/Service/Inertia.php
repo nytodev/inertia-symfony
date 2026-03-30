@@ -173,7 +173,10 @@ final class Inertia implements ResetInterface
         return new OnceProp($callback);
     }
 
-    public function merge(\Closure $callback, bool $prepend = false, bool $deep = false, ?string $matchOn = null): MergeProp
+    /**
+     * @param string|string[] $matchOn one or more field names for client-side deduplication
+     */
+    public function merge(\Closure $callback, bool $prepend = false, bool $deep = false, string|array $matchOn = []): MergeProp
     {
         return new MergeProp($callback, $prepend, $deep, $matchOn);
     }

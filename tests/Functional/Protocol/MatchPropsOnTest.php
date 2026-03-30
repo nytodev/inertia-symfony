@@ -37,6 +37,23 @@ final class MatchPropsOnTest extends WebTestCase
         $this->assertArrayNotHasKey('matchPropsOn', $data);
     }
 
+    public function testMatchPropsOnWithMultipleFieldsEmitsAllEntries(): void
+    {
+        $client = self::createClient();
+        $client->request('GET', '/test/match-props-on-multi', [], [], [
+            'HTTP_X-Inertia' => 'true',
+            'HTTP_X-Inertia-Version' => '',
+        ]);
+
+        $this->assertResponseIsSuccessful();
+
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        $this->assertArrayHasKey('matchPropsOn', $data);
+        $this->assertContains('merge_a.id', $data['matchPropsOn']);
+        $this->assertContains('merge_a.uuid', $data['matchPropsOn']);
+        $this->assertCount(2, $data['matchPropsOn']);
+    }
+
     public function testMatchPropsOnWhenPropFilteredOutIsAbsentFromPageObject(): void
     {
         $client = self::createClient();

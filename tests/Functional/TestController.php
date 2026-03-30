@@ -67,6 +67,13 @@ final class TestController
         ]);
     }
 
+    public function matchPropsOnMulti(): Response
+    {
+        return $this->inertia->render('TestComponent', [
+            'merge_a' => $this->inertia->merge(static fn () => [], matchOn: ['id', 'uuid']),
+        ]);
+    }
+
     public function defer(): Response
     {
         return $this->inertia->render('TestComponent', [

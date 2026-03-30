@@ -38,4 +38,7 @@ return static function (RoutingConfigurator $routes): void {
 
     $routes->add('test_inertia_match_props_on', '/test/match-props-on')
         ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'matchPropsOn']);
+
+    $routes->add('test_inertia_match_props_on_multi', '/test/match-props-on-multi')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'matchPropsOnMulti']);
 };
