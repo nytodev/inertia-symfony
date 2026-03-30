@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nytodev\InertiaBundle\Response;
 
+use Nytodev\InertiaBundle\Props\AlwaysProp;
 use Nytodev\InertiaBundle\Props\DeferProp;
 use Nytodev\InertiaBundle\Props\LazyProp;
 use Nytodev\InertiaBundle\Props\MergeProp;
@@ -45,6 +46,7 @@ final class InertiaResponse
         $only = $this->parseCsv($request->headers->get('X-Inertia-Partial-Data') ?? '');
         $except = $this->parseCsv($request->headers->get('X-Inertia-Partial-Except') ?? '');
         $exceptOnce = $this->parseCsv($request->headers->get('X-Inertia-Except-Once-Props') ?? '');
+        $reset = $this->parseCsv($request->headers->get('X-Inertia-Reset') ?? '');
         $partialComponent = $request->headers->get('X-Inertia-Partial-Component') ?? '';
 
         $isPartial = ([] !== $only || [] !== $except) && $partialComponent === $component;
@@ -62,24 +64,31 @@ final class InertiaResponse
             }
         }
 
-        // Collect merge prop keys before resolving.
-        $mergeProps = [];
-        $prependProps = [];
-        $deepMergeProps = [];
-        foreach ($props as $key => $prop) {
-            if (!$prop instanceof MergeProp) {
-                continue;
-            }
-            if ($prop->isDeep()) {
-                $deepMergeProps[] = $key;
-            } elseif ($prop->isPrepend()) {
-                $prependProps[] = $key;
-            } else {
-                $mergeProps[] = $key;
-            }
+        $resolved = $this->resolveProps($props, $only, $except, $exceptOnce, $isPartial);
+
+        // Guarantee: errors must always be present, even if a DeferProp/LazyProp was passed as 'errors'.
+        if (!\array_key_exists('errors', $resolved)) {
+            $resolved['errors'] = [];
         }
 
-        $resolved = $this->resolveProps($props, $only, $except, $exceptOnce, $isPartial);
+        // BUG 3 fix: collect merge arrays AFTER resolving+filtering so excluded keys are absent.
+        [$mergeProps, $prependProps, $deepMergeProps] = $this->collectMergeArrays($props, $resolved);
+
+        // Collect onceProps metadata for keys that survived into resolved props.
+        $oncePropsMeta = [];
+        foreach ($props as $key => $prop) {
+            if ($prop instanceof OnceProp && \array_key_exists($key, $resolved)) {
+                $expiresAt = $prop->getExpiresAt();
+                $meta = [
+                    'prop' => $prop->getAlias() ?? $key,
+                    'expiresAt' => null !== $expiresAt ? $expiresAt->format(\DateTimeInterface::ATOM) : null,
+                ];
+                if ($prop->isFresh()) {
+                    $meta['fresh'] = true;
+                }
+                $oncePropsMeta[$key] = $meta;
+            }
+        }
 
         $page = $this->buildPageObject(
             $component,
@@ -88,10 +97,12 @@ final class InertiaResponse
             $version,
             $clearHistory,
             $encryptHistory,
-            $deferredGroups,
+            $isPartial ? [] : $deferredGroups,
             $mergeProps,
             $prependProps,
             $deepMergeProps,
+            $isPartial ? $reset : [],
+            $oncePropsMeta,
         );
 
         if ($request->headers->has('X-Inertia')) {
@@ -103,15 +114,15 @@ final class InertiaResponse
 
         $html = $this->twig->render($this->rootView, ['page' => $page]);
 
-        return new Response($html);
+        return new Response($html, 200, ['Vary' => 'X-Inertia']);
     }
 
     /**
      * Filter and resolve prop values according to partial reload headers.
-     * - LazyProp: skipped on full render, resolved on partial if requested
+     * - LazyProp: skipped on full render, resolved on partial ONLY if explicitly in $only
      * - DeferProp: always excluded (goes into deferredProps)
-     * - OnceProp: resolved unless key is in X-Inertia-Except-Once-Props
-     * - MergeProp: resolved and tracked in mergeProps/prependProps/deepMergeProps.
+     * - OnceProp: resolved unless key is in X-Inertia-Except-Once-Props or in $except
+     * - MergeProp: resolved (merge metadata is collected separately in build()).
      *
      * @param array<string, mixed> $props
      * @param string[]             $only       props to include (CSV from X-Inertia-Partial-Data)
@@ -129,37 +140,66 @@ final class InertiaResponse
         bool $isPartial = false,
     ): array {
         $resolved = [];
+        /** @var string[] $alwaysKeys */
+        $alwaysKeys = [];
 
         foreach ($props as $key => $value) {
-            // DeferProp is always excluded from the props array.
+            // DeferProp: excluded on full render and on partial when key is not explicitly in $only.
+            // On a deferred-fetch partial reload (key in $only), resolve and include.
             if ($value instanceof DeferProp) {
-                continue;
-            }
-
-            // LazyProp: skip on full render; on partial, include only if in $only.
-            if ($value instanceof LazyProp) {
-                if (!$isPartial) {
-                    continue;
-                }
-                // In partial reload, LazyProp is resolved only if key is in $only.
-                if ([] !== $only && !\in_array($key, $only, true)) {
+                if (!$isPartial || [] === $only || !\in_array($key, $only, true)) {
                     continue;
                 }
                 $resolved[$key] = $value->resolve();
                 continue;
             }
 
-            // OnceProp: skip if key is in $exceptOnce, otherwise resolve.
+            // AlwaysProp: resolved on every render; bypasses partial $only/$except filters.
+            if ($value instanceof AlwaysProp) {
+                $resolved[$key] = $value->resolve();
+                $alwaysKeys[] = $key;
+                continue;
+            }
+
+            // LazyProp: skip on full render; on partial, include only if explicitly in $only.
+            // BUG 1 fix: check $except before resolving.
+            // BUG 4 fix: require [] !== $only — if $only is empty, LazyProp is never resolved.
+            if ($value instanceof LazyProp) {
+                if (!$isPartial || [] === $only || !\in_array($key, $only, true)) {
+                    continue;
+                }
+                // $except wins: do not resolve if key is in $except.
+                if ([] !== $except && \in_array($key, $except, true)) {
+                    continue;
+                }
+                $resolved[$key] = $value->resolve();
+                continue;
+            }
+
+            // OnceProp: skip if key is in $exceptOnce.
+            // Also skip (without resolving) if key is in $except or not in $only during partial reload.
             if ($value instanceof OnceProp) {
                 if (\in_array($key, $exceptOnce, true)) {
                     continue;
                 }
+                if ($isPartial && [] !== $except && \in_array($key, $except, true)) {
+                    continue;
+                }
+                if ($isPartial && [] !== $only && !\in_array($key, $only, true)) {
+                    continue;
+                }
                 $resolved[$key] = $value->resolve();
                 continue;
             }
 
-            // MergeProp: resolve the value.
+            // MergeProp: resolve the value, but skip (without resolving) if partial-reload filters exclude it.
             if ($value instanceof MergeProp) {
+                if ($isPartial && [] !== $except && \in_array($key, $except, true)) {
+                    continue;
+                }
+                if ($isPartial && [] !== $only && !\in_array($key, $only, true)) {
+                    continue;
+                }
                 $resolved[$key] = $value->resolve();
                 continue;
             }
@@ -180,8 +220,8 @@ final class InertiaResponse
         // Partial reload: apply $only/$except filtering. $except wins when both are set.
         $filtered = [];
         foreach ($resolved as $key => $value) {
-            // errors is always included regardless of partial filters.
-            if ('errors' === $key) {
+            // errors and AlwaysProp keys are always included regardless of partial filters.
+            if ('errors' === $key || \in_array($key, $alwaysKeys, true)) {
                 $filtered[$key] = $value;
                 continue;
             }
@@ -203,16 +243,53 @@ final class InertiaResponse
     }
 
     /**
+     * Collect merge/prepend/deepMerge arrays from the original props, restricted to
+     * keys that survived into the final resolved props (i.e. not filtered out).
+     *
+     * @param array<string, mixed> $rawProps      original props before resolution
+     * @param array<string, mixed> $resolvedProps props after resolution and filtering
+     *
+     * @return array{0: list<string>, 1: list<string>, 2: list<string>}
+     */
+    private function collectMergeArrays(array $rawProps, array $resolvedProps): array
+    {
+        $mergeProps = [];
+        $prependProps = [];
+        $deepMergeProps = [];
+
+        foreach ($rawProps as $key => $prop) {
+            if (!$prop instanceof MergeProp) {
+                continue;
+            }
+            // Only include keys that survived the filter.
+            if (!\array_key_exists($key, $resolvedProps)) {
+                continue;
+            }
+            if ($prop->isDeep()) {
+                $deepMergeProps[] = $key;
+            } elseif ($prop->isPrepend()) {
+                $prependProps[] = $key;
+            } else {
+                $mergeProps[] = $key;
+            }
+        }
+
+        return [$mergeProps, $prependProps, $deepMergeProps];
+    }
+
+    /**
      * Build the canonical v2 page object array.
      * clearHistory and encryptHistory are ALWAYS present in v2, even if false.
      *
      * TODO: Inertia v3 — clearHistory/encryptHistory omitted if false
      *
-     * @param array<string, mixed>        $resolvedProps
-     * @param array<string, list<string>> $deferredProps  grouped deferred prop keys
-     * @param list<string>                $mergeProps
-     * @param list<string>                $prependProps
-     * @param list<string>                $deepMergeProps
+     * @param array<string, mixed>                                 $resolvedProps
+     * @param array<string, list<string>>                          $deferredProps  grouped deferred prop keys
+     * @param list<string>                                         $mergeProps
+     * @param list<string>                                         $prependProps
+     * @param list<string>                                         $deepMergeProps
+     * @param list<string>                                         $resetProps     keys to reset before merging
+     * @param array<string, array{prop: string, expiresAt: mixed}> $onceProps      once-prop metadata
      *
      * @return array<string, mixed>
      */
@@ -227,6 +304,8 @@ final class InertiaResponse
         array $mergeProps = [],
         array $prependProps = [],
         array $deepMergeProps = [],
+        array $resetProps = [],
+        array $onceProps = [],
     ): array {
         $page = [
             'component' => $component,
@@ -251,6 +330,14 @@ final class InertiaResponse
 
         if ([] !== $deepMergeProps) {
             $page['deepMergeProps'] = $deepMergeProps;
+        }
+
+        if ([] !== $resetProps) {
+            $page['resetProps'] = $resetProps;
+        }
+
+        if ([] !== $onceProps) {
+            $page['onceProps'] = $onceProps;
         }
 
         return $page;

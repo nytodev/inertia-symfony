@@ -34,11 +34,8 @@ abstract class AbstractInertiaController extends AbstractController
      *
      * @param array<string, mixed> $props
      */
-    protected function renderInertia(
-        string $component,
-        array $props = [],
-        ?Response $response = null,
-    ): Response {
-        return $this->inertia->render($component, $props, $response);
+    protected function renderInertia(string $component, array $props = []): Response
+    {
+        return $this->inertia->render($component, $props);
     }
 }
