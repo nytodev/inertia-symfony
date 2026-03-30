@@ -48,12 +48,32 @@ final class DeferredPropsTest extends FunctionalTestCase
 
     public function testDeferredPropsResolvedWhenFetchedByClient(): void
     {
-        // The client fetches deferred props via a partial reload targeting the deferred key.
-        // Without a route that serves DeferProps, this confirms non-deferred props resolve normally.
-        $this->client->request('GET', '/test', [], [], ['HTTP_X_INERTIA' => 'true']);
+        // The client performs a separate partial XHR to fetch deferred props.
+        $this->client->request('GET', '/test/defer', [], [], [
+            'HTTP_X_INERTIA' => 'true',
+            'HTTP_X_INERTIA_PARTIAL_DATA' => 'deferred',
+            'HTTP_X_INERTIA_PARTIAL_COMPONENT' => 'TestComponent',
+        ]);
+        self::assertResponseIsSuccessful();
         $data = json_decode((string) $this->client->getResponse()->getContent(), true);
         self::assertIsArray($data);
         self::assertIsArray($data['props']);
-        self::assertSame('bar', $data['props']['foo']);
+        self::assertArrayHasKey('deferred', $data['props']);
+        self::assertSame('deferred-value', $data['props']['deferred']);
+    }
+
+    public function testDeferredPropsAbsentFromDeferredFetchResponse(): void
+    {
+        // When the client fetches deferred props via a partial XHR, the response must NOT
+        // include deferredProps — otherwise the client would re-trigger the XHR indefinitely.
+        $this->client->request('GET', '/test/defer', [], [], [
+            'HTTP_X_INERTIA' => 'true',
+            'HTTP_X_INERTIA_PARTIAL_DATA' => 'deferred',
+            'HTTP_X_INERTIA_PARTIAL_COMPONENT' => 'TestComponent',
+        ]);
+        self::assertResponseIsSuccessful();
+        $data = json_decode((string) $this->client->getResponse()->getContent(), true);
+        self::assertIsArray($data);
+        self::assertArrayNotHasKey('deferredProps', $data);
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nytodev\InertiaBundle\Tests\Unit\Response;
 
+use Nytodev\InertiaBundle\Props\AlwaysProp;
 use Nytodev\InertiaBundle\Props\DeferProp;
 use Nytodev\InertiaBundle\Props\LazyProp;
 use Nytodev\InertiaBundle\Props\MergeProp;
@@ -142,12 +143,20 @@ final class InertiaResponseTest extends TestCase
         self::assertSame([1, 2, 3], $resolved['items']);
     }
 
-    public function testResolvePropsDeferPropAlwaysExcludedOnPartialReload(): void
+    public function testResolvePropsDeferPropExcludedOnPartialReloadWhenNotInOnly(): void
     {
         $props = ['users' => new DeferProp(static fn () => []), 'title' => 'Hello'];
-        $resolved = $this->response->resolveProps($props, ['users', 'title'], [], [], true);
+        $resolved = $this->response->resolveProps($props, ['title'], [], [], true);
         self::assertArrayNotHasKey('users', $resolved);
         self::assertSame('Hello', $resolved['title']);
+    }
+
+    public function testResolvePropsDeferPropResolvedWhenExplicitlyInOnly(): void
+    {
+        $props = ['users' => new DeferProp(static fn () => ['a', 'b']), 'title' => 'Hello'];
+        $resolved = $this->response->resolveProps($props, ['users'], [], [], true);
+        self::assertArrayHasKey('users', $resolved);
+        self::assertSame(['a', 'b'], $resolved['users']);
     }
 
     // -------------------------------------------------------------------------
@@ -318,5 +327,291 @@ final class InertiaResponseTest extends TestCase
         self::assertArrayHasKey('bar', $data['props']);
         self::assertArrayHasKey('baz', $data['props']);
         self::assertArrayNotHasKey('qux', $data['props']);
+    }
+
+    // -------------------------------------------------------------------------
+    // BUG 1 — LazyProp closure must NOT run when key is in $except
+    // -------------------------------------------------------------------------
+
+    public function testResolvePropsLazyPropKeyInBothOnlyAndExceptClosureNotCalled(): void
+    {
+        $called = false;
+        $props = [
+            'name' => new LazyProp(static function () use (&$called): string {
+                $called = true;
+
+                return 'Tony';
+            }),
+            'title' => 'Hello',
+        ];
+
+        // Both $only and $except contain 'name'; $except wins — closure must not run.
+        $resolved = $this->response->resolveProps($props, ['name'], ['name'], [], true);
+
+        self::assertFalse($called, 'LazyProp closure must not be called when the key is in $except');
+        self::assertArrayNotHasKey('name', $resolved);
+    }
+
+    // -------------------------------------------------------------------------
+    // BUG 2 — OnceProp closure must NOT run when key is in $except
+    // -------------------------------------------------------------------------
+
+    public function testResolvePropsOncePropKeyInExceptClosureNotCalled(): void
+    {
+        $called = false;
+        $props = [
+            'name' => new OnceProp(static function () use (&$called): string {
+                $called = true;
+
+                return 'Tony';
+            }),
+            'title' => 'Hello',
+        ];
+
+        // 'name' is in $except — the closure must not be called and the key must be absent.
+        $resolved = $this->response->resolveProps($props, ['name', 'title'], ['name'], [], true);
+
+        self::assertFalse($called, 'OnceProp closure must not be called when the key is in $except');
+        self::assertArrayNotHasKey('name', $resolved);
+        self::assertArrayHasKey('title', $resolved);
+    }
+
+    // -------------------------------------------------------------------------
+    // BUG 3 — MergeProp keys must not appear in merge arrays when filtered by $except
+    // -------------------------------------------------------------------------
+
+    public function testBuildWithMergePropExcludedViaExceptKeyAbsentFromMergeProps(): void
+    {
+        $request = Request::create('/home');
+        $request->headers->set('X-Inertia', 'true');
+        $request->headers->set('X-Inertia-Partial-Data', 'regular,excluded');
+        $request->headers->set('X-Inertia-Partial-Except', 'excluded');
+        $request->headers->set('X-Inertia-Partial-Component', 'Home');
+
+        $result = $this->response->build('Home', [
+            'regular' => new MergeProp(static fn () => [1, 2]),
+            'excluded' => new MergeProp(static fn () => [3, 4]),
+        ], '/home', null, $request);
+
+        $data = json_decode((string) $result->getContent(), true);
+        self::assertIsArray($data);
+
+        // 'regular' survived — must appear in mergeProps.
+        self::assertContains('regular', $data['mergeProps']);
+        // 'excluded' was filtered by $except — must NOT appear in mergeProps.
+        self::assertNotContains('excluded', $data['mergeProps'] ?? []);
+    }
+
+    // -------------------------------------------------------------------------
+    // AlwaysProp — always included regardless of partial reload filters
+    // -------------------------------------------------------------------------
+
+    public function testResolvePropsAlwaysPropResolvedOnFullRender(): void
+    {
+        $props = ['always' => new AlwaysProp(static fn () => 'always-value'), 'title' => 'Hello'];
+        $resolved = $this->response->resolveProps($props, [], [], [], false);
+        self::assertSame('always-value', $resolved['always']);
+        self::assertSame('Hello', $resolved['title']);
+    }
+
+    public function testResolvePropsAlwaysPropIncludedEvenWhenNotInOnly(): void
+    {
+        // $only contains 'title' but not 'always' — AlwaysProp must still be included.
+        $props = ['always' => new AlwaysProp(static fn () => 'always-value'), 'title' => 'Hello', 'other' => 'x'];
+        $resolved = $this->response->resolveProps($props, ['title'], [], [], true);
+        self::assertArrayHasKey('always', $resolved);
+        self::assertSame('always-value', $resolved['always']);
+        self::assertArrayHasKey('title', $resolved);
+        self::assertArrayNotHasKey('other', $resolved);
+    }
+
+    public function testResolvePropsAlwaysPropIncludedEvenWhenInExcept(): void
+    {
+        // Partial reload: $only=['other'], $except=['always'].
+        // 'always' is in $except — AlwaysProp must bypass this and still be included.
+        // 'other' is in $only and not in $except — included normally.
+        $props = ['always' => new AlwaysProp(static fn () => 'always-value'), 'other' => 'x', 'ignored' => 'y'];
+        $resolved = $this->response->resolveProps($props, ['other'], ['always'], [], true);
+        self::assertArrayHasKey('always', $resolved);
+        self::assertSame('always-value', $resolved['always']);
+        self::assertArrayHasKey('other', $resolved);
+        self::assertArrayNotHasKey('ignored', $resolved);
+    }
+
+    public function testResolvePropsAlwaysPropClosureCalledExactlyOnce(): void
+    {
+        $callCount = 0;
+        $props = ['always' => new AlwaysProp(static function () use (&$callCount): string {
+            ++$callCount;
+
+            return 'v';
+        })];
+        $this->response->resolveProps($props, [], [], [], false);
+        self::assertSame(1, $callCount);
+    }
+
+    // -------------------------------------------------------------------------
+    // BUG 4 — LazyProp must NOT be resolved when only $except is set (no $only)
+    // -------------------------------------------------------------------------
+
+    public function testResolvePropsLazyPropExceptOnlyPartialReloadClosureNotCalled(): void
+    {
+        $called = false;
+        $props = [
+            'lazy' => new LazyProp(static function () use (&$called): string {
+                $called = true;
+
+                return 'lazy-value';
+            }),
+            'eager' => 'value',
+        ];
+
+        // Only $except is set, $only is empty — LazyProp must NOT be resolved.
+        $resolved = $this->response->resolveProps($props, [], ['eager'], [], true);
+
+        self::assertFalse($called, 'LazyProp closure must not be called when only $except is set (no $only)');
+        self::assertArrayNotHasKey('lazy', $resolved);
+    }
+
+    // -------------------------------------------------------------------------
+    // X-Inertia-Reset → resetProps in page object
+    // -------------------------------------------------------------------------
+
+    public function testBuildWithResetHeaderEmitsResetPropsInPageObject(): void
+    {
+        $twig = new Environment(new ArrayLoader([]));
+        $response = new InertiaResponse($twig, 'base.html.twig');
+
+        $request = Request::create('/home');
+        $request->headers->set('X-Inertia', 'true');
+        $request->headers->set('X-Inertia-Partial-Data', 'posts');
+        $request->headers->set('X-Inertia-Partial-Component', 'Home');
+        $request->headers->set('X-Inertia-Reset', 'posts');
+
+        $result = $response->build('Home', ['posts' => [1, 2, 3]], '/home', null, $request);
+        $data = json_decode((string) $result->getContent(), true);
+        self::assertIsArray($data);
+        self::assertArrayHasKey('resetProps', $data);
+        self::assertContains('posts', $data['resetProps']);
+    }
+
+    public function testBuildWithoutResetHeaderOmitsResetPropsFromPageObject(): void
+    {
+        $twig = new Environment(new ArrayLoader([]));
+        $response = new InertiaResponse($twig, 'base.html.twig');
+
+        $request = Request::create('/home');
+        $request->headers->set('X-Inertia', 'true');
+
+        $result = $response->build('Home', ['posts' => [1, 2, 3]], '/home', null, $request);
+        $data = json_decode((string) $result->getContent(), true);
+        self::assertIsArray($data);
+        self::assertArrayNotHasKey('resetProps', $data);
+    }
+
+    // -------------------------------------------------------------------------
+    // OnceProp → onceProps metadata in page object
+    // -------------------------------------------------------------------------
+
+    public function testBuildWithOncePropsEmitsOncePropsMetadataInPageObject(): void
+    {
+        $request = Request::create('/home');
+        $request->headers->set('X-Inertia', 'true');
+
+        $result = $this->response->build('Home', [
+            'plans' => new OnceProp(static fn () => ['basic', 'pro']),
+        ], '/home', null, $request);
+
+        $data = json_decode((string) $result->getContent(), true);
+        self::assertIsArray($data);
+        self::assertArrayHasKey('onceProps', $data);
+        self::assertArrayHasKey('plans', $data['onceProps']);
+        self::assertSame('plans', $data['onceProps']['plans']['prop']);
+        self::assertNull($data['onceProps']['plans']['expiresAt']);
+    }
+
+    public function testBuildWithoutOncePropsOmitsOncePropsFromPageObject(): void
+    {
+        $request = Request::create('/home');
+        $request->headers->set('X-Inertia', 'true');
+
+        $result = $this->response->build('Home', ['foo' => 'bar'], '/home', null, $request);
+        $data = json_decode((string) $result->getContent(), true);
+        self::assertIsArray($data);
+        self::assertArrayNotHasKey('onceProps', $data);
+    }
+
+    public function testBuildOncePropsMetadataOmittedWhenFilteredByExceptOnce(): void
+    {
+        $request = Request::create('/home');
+        $request->headers->set('X-Inertia', 'true');
+        $request->headers->set('X-Inertia-Except-Once-Props', 'plans');
+
+        $result = $this->response->build('Home', [
+            'plans' => new OnceProp(static fn () => ['basic', 'pro']),
+        ], '/home', null, $request);
+
+        $data = json_decode((string) $result->getContent(), true);
+        self::assertIsArray($data);
+        self::assertArrayNotHasKey('onceProps', $data);
+    }
+
+    public function testBuildOncePropsMetadataUsesAliasWhenAsModifierSet(): void
+    {
+        $request = Request::create('/home');
+        $request->headers->set('X-Inertia', 'true');
+
+        $result = $this->response->build('Home', [
+            'plans' => (new OnceProp(static fn () => ['basic', 'pro']))->as('pricing'),
+        ], '/home', null, $request);
+
+        $data = json_decode((string) $result->getContent(), true);
+        self::assertIsArray($data);
+        self::assertSame('pricing', $data['onceProps']['plans']['prop']);
+    }
+
+    public function testBuildOncePropsMetadataIncludesExpiresAtWhenUntilModifierSet(): void
+    {
+        $request = Request::create('/home');
+        $request->headers->set('X-Inertia', 'true');
+
+        $expiry = new \DateTimeImmutable('2030-06-01T12:00:00+00:00');
+        $result = $this->response->build('Home', [
+            'plans' => (new OnceProp(static fn () => ['basic', 'pro']))->until($expiry),
+        ], '/home', null, $request);
+
+        $data = json_decode((string) $result->getContent(), true);
+        self::assertIsArray($data);
+        self::assertNotNull($data['onceProps']['plans']['expiresAt']);
+    }
+
+    public function testBuildOncePropsMetadataSetsFreshWhenFreshModifierSet(): void
+    {
+        $request = Request::create('/home');
+        $request->headers->set('X-Inertia', 'true');
+
+        $result = $this->response->build('Home', [
+            'plans' => (new OnceProp(static fn () => ['basic', 'pro']))->fresh(),
+        ], '/home', null, $request);
+
+        $data = json_decode((string) $result->getContent(), true);
+        self::assertIsArray($data);
+        self::assertTrue($data['onceProps']['plans']['fresh']);
+    }
+
+    public function testBuildErrorsAlwaysPresentEvenWhenDeferredPropPassedAsErrors(): void
+    {
+        $request = Request::create('/home');
+        $request->headers->set('X-Inertia', 'true');
+
+        // Pass 'errors' as a DeferProp — it must not be excluded; fallback to [] is guaranteed.
+        $result = $this->response->build('Home', [
+            'errors' => new DeferProp(static fn () => ['field' => 'error'], 'default'),
+        ], '/home', null, $request);
+
+        $data = json_decode((string) $result->getContent(), true);
+        self::assertIsArray($data);
+        self::assertArrayHasKey('errors', $data['props']);
+        self::assertSame([], $data['props']['errors']);
     }
 }

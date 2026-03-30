@@ -20,4 +20,19 @@ return static function (RoutingConfigurator $routes): void {
 
     $routes->add('test_inertia_lazy', '/test/lazy')
         ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'lazy']);
+
+    $routes->add('test_inertia_merge', '/test/merge')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'merge']);
+
+    $routes->add('test_inertia_always', '/test/always')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'always']);
+
+    $routes->add('test_inertia_defer', '/test/defer')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'defer']);
+
+    $routes->add('test_inertia_clear_history', '/test/clear-history')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'clearHistory']);
+
+    $routes->add('test_inertia_encrypt_history', '/test/encrypt-history')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'encryptHistory']);
 };

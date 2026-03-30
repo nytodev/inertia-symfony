@@ -120,4 +120,96 @@ final class PartialReloadTest extends FunctionalTestCase
         self::assertArrayHasKey('foo', $data['props']);
         self::assertArrayNotHasKey('baz', $data['props']);
     }
+
+    // -------------------------------------------------------------------------
+    // BUG 4 — LazyProp must NOT be resolved when only X-Inertia-Partial-Except is set
+    // -------------------------------------------------------------------------
+
+    public function testPartialReloadLazyPropExceptOnlyHeaderLazyPropNotResolved(): void
+    {
+        // Only X-Inertia-Partial-Except is sent (no X-Inertia-Partial-Data).
+        // LazyProp must NOT appear because it was never explicitly requested via $only.
+        $this->client->request('GET', '/test/lazy', [], [], [
+            'HTTP_X_INERTIA' => 'true',
+            'HTTP_X_INERTIA_PARTIAL_EXCEPT' => 'eager',
+            'HTTP_X_INERTIA_PARTIAL_COMPONENT' => 'TestComponent',
+        ]);
+        self::assertResponseIsSuccessful();
+        $data = json_decode((string) $this->client->getResponse()->getContent(), true);
+        self::assertIsArray($data);
+        self::assertIsArray($data['props']);
+        // 'eager' was excluded; 'lazy' was never requested — must be absent.
+        self::assertArrayNotHasKey('lazy', $data['props']);
+        self::assertArrayNotHasKey('eager', $data['props']);
+    }
+
+    // -------------------------------------------------------------------------
+    // AlwaysProp — always included regardless of partial reload filters
+    // -------------------------------------------------------------------------
+
+    public function testAlwaysPropIncludedOnFullRender(): void
+    {
+        $this->client->request('GET', '/test/always', [], [], [
+            'HTTP_X_INERTIA' => 'true',
+        ]);
+        self::assertResponseIsSuccessful();
+        $data = json_decode((string) $this->client->getResponse()->getContent(), true);
+        self::assertIsArray($data);
+        self::assertSame('always-value', $data['props']['always']);
+        self::assertSame('regular-value', $data['props']['regular']);
+    }
+
+    public function testAlwaysPropIncludedWhenNotInPartialData(): void
+    {
+        // Partial reload requests only 'regular' — 'always' must still appear.
+        $this->client->request('GET', '/test/always', [], [], [
+            'HTTP_X_INERTIA' => 'true',
+            'HTTP_X_INERTIA_PARTIAL_DATA' => 'regular',
+            'HTTP_X_INERTIA_PARTIAL_COMPONENT' => 'TestComponent',
+        ]);
+        self::assertResponseIsSuccessful();
+        $data = json_decode((string) $this->client->getResponse()->getContent(), true);
+        self::assertIsArray($data);
+        self::assertArrayHasKey('always', $data['props']);
+        self::assertSame('always-value', $data['props']['always']);
+        self::assertArrayHasKey('regular', $data['props']);
+    }
+
+    public function testAlwaysPropIncludedEvenWhenInExcept(): void
+    {
+        // Partial reload explicitly excludes 'always' — AlwaysProp must bypass $except.
+        $this->client->request('GET', '/test/always', [], [], [
+            'HTTP_X_INERTIA' => 'true',
+            'HTTP_X_INERTIA_PARTIAL_EXCEPT' => 'always',
+            'HTTP_X_INERTIA_PARTIAL_COMPONENT' => 'TestComponent',
+        ]);
+        self::assertResponseIsSuccessful();
+        $data = json_decode((string) $this->client->getResponse()->getContent(), true);
+        self::assertIsArray($data);
+        self::assertArrayHasKey('always', $data['props']);
+        self::assertSame('always-value', $data['props']['always']);
+    }
+
+    // -------------------------------------------------------------------------
+    // BUG 3 — MergeProp keys must not appear in mergeProps after $except filtering
+    // -------------------------------------------------------------------------
+
+    public function testPartialReloadMergePropExcludedViaExceptAbsentFromMergePropsMetadata(): void
+    {
+        // 'merge_a' is in $only, 'merge_b' is in $except — merge_b must not appear in mergeProps.
+        $this->client->request('GET', '/test/merge', [], [], [
+            'HTTP_X_INERTIA' => 'true',
+            'HTTP_X_INERTIA_PARTIAL_DATA' => 'merge_a,merge_b',
+            'HTTP_X_INERTIA_PARTIAL_EXCEPT' => 'merge_b',
+            'HTTP_X_INERTIA_PARTIAL_COMPONENT' => 'TestComponent',
+        ]);
+        self::assertResponseIsSuccessful();
+        $data = json_decode((string) $this->client->getResponse()->getContent(), true);
+        self::assertIsArray($data);
+
+        // merge_a survived — must be in mergeProps.
+        self::assertContains('merge_a', $data['mergeProps'] ?? []);
+        // merge_b was filtered — must NOT be in mergeProps.
+        self::assertNotContains('merge_b', $data['mergeProps'] ?? []);
+    }
 }

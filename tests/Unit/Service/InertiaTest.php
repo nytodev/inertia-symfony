@@ -15,6 +15,7 @@ use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Contracts\Service\ResetInterface;
 use Twig\Environment;
 use Twig\Loader\ArrayLoader;
 
@@ -154,6 +155,24 @@ final class InertiaTest extends TestCase
         self::assertSame([], $service->getSharedOnceProps());
     }
 
+    public function testResetImplementsResetInterface(): void
+    {
+        $service = $this->makeService();
+        self::assertInstanceOf(ResetInterface::class, $service);
+    }
+
+    public function testResetClearsBothSharedPropsAndSharedOnceProps(): void
+    {
+        $service = $this->makeService();
+        $service->share('auth', ['user' => 'Tony']);
+        $service->shareOnce('flash', 'success');
+
+        $service->reset();
+
+        self::assertSame([], $service->getSharedProps());
+        self::assertSame([], $service->getSharedOnceProps());
+    }
+
     public function testRenderThrowsLogicExceptionWhenNoCurrentRequest(): void
     {
         $this->requestStack->method('getCurrentRequest')->willReturn(null);
@@ -241,5 +260,87 @@ final class InertiaTest extends TestCase
 
         self::assertFalse($result->isPrepend());
         self::assertTrue($result->isDeep());
+    }
+
+    public function testClearHistoryWhenFlagSetPageObjectHasClearHistoryTrue(): void
+    {
+        $request = new Request([], [], [], [], [], ['REQUEST_URI' => '/home']);
+        $request->headers->set('X-Inertia', 'true');
+        $this->requestStack->method('getCurrentRequest')->willReturn($request);
+
+        $service = $this->makeService();
+        $service->clearHistory();
+        $response = $service->render('Home', []);
+
+        $data = json_decode((string) $response->getContent(), true);
+        self::assertIsArray($data);
+        self::assertTrue($data['clearHistory']);
+    }
+
+    public function testEncryptHistoryWhenFlagSetPageObjectHasEncryptHistoryTrue(): void
+    {
+        $request = new Request([], [], [], [], [], ['REQUEST_URI' => '/home']);
+        $request->headers->set('X-Inertia', 'true');
+        $this->requestStack->method('getCurrentRequest')->willReturn($request);
+
+        $service = $this->makeService();
+        $service->encryptHistory();
+        $response = $service->render('Home', []);
+
+        $data = json_decode((string) $response->getContent(), true);
+        self::assertIsArray($data);
+        self::assertTrue($data['encryptHistory']);
+    }
+
+    public function testClearHistoryIsOneShotFlagResetAfterRender(): void
+    {
+        $request = new Request([], [], [], [], [], ['REQUEST_URI' => '/home']);
+        $request->headers->set('X-Inertia', 'true');
+        $this->requestStack->method('getCurrentRequest')->willReturn($request);
+
+        $service = $this->makeService();
+        $service->clearHistory();
+        $service->render('Home', []);
+
+        // Second render — flag must be back to false
+        $response = $service->render('Home', []);
+        $data = json_decode((string) $response->getContent(), true);
+        self::assertIsArray($data);
+        self::assertFalse($data['clearHistory']);
+    }
+
+    public function testEncryptHistoryIsOneShotFlagResetAfterRender(): void
+    {
+        $request = new Request([], [], [], [], [], ['REQUEST_URI' => '/home']);
+        $request->headers->set('X-Inertia', 'true');
+        $this->requestStack->method('getCurrentRequest')->willReturn($request);
+
+        $service = $this->makeService();
+        $service->encryptHistory();
+        $service->render('Home', []);
+
+        // Second render — flag must be back to false
+        $response = $service->render('Home', []);
+        $data = json_decode((string) $response->getContent(), true);
+        self::assertIsArray($data);
+        self::assertFalse($data['encryptHistory']);
+    }
+
+    public function testResetClearsBothHistoryFlags(): void
+    {
+        $request = new Request([], [], [], [], [], ['REQUEST_URI' => '/home']);
+        $request->headers->set('X-Inertia', 'true');
+        $this->requestStack->method('getCurrentRequest')->willReturn($request);
+
+        $service = $this->makeService();
+        $service->clearHistory();
+        $service->encryptHistory();
+        $service->reset();
+
+        $response = $service->render('Home', []);
+        $data = json_decode((string) $response->getContent(), true);
+        self::assertIsArray($data);
+        self::assertFalse($data['clearHistory']);
+        self::assertFalse($data['encryptHistory']);
     }
 }
