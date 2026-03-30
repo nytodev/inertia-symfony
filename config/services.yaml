@@ -5,6 +5,15 @@ services:
         autoconfigure: false
 
     # -------------------------------------------------------------------------
+    # SSR Gateway: NullSsrGateway by default (SSR disabled).
+    # InertiaBundle::loadExtension() overrides this with HttpSsrGateway when
+    # ssr_enabled: true, injecting the configured ssrUrl.
+    # -------------------------------------------------------------------------
+    inertia.ssr_gateway:
+        class: Nytodev\InertiaBundle\Ssr\NullSsrGateway
+        public: false
+
+    # -------------------------------------------------------------------------
     # Response builder: constructs the Inertia page object and returns
     # either an HTML response (first visit) or a JSON response (XHR visit).
     # -------------------------------------------------------------------------
@@ -16,13 +25,14 @@ services:
 
     # -------------------------------------------------------------------------
     # Core service: manages shared props and delegates to InertiaResponse.
+    # Note: $rootView and $version are injected at compile time via
+    # InertiaBundle::loadExtension() from the validated config.
     # -------------------------------------------------------------------------
     inertia.service:
         class: Nytodev\InertiaBundle\Service\Inertia
         public: false
         arguments:
             $requestStack: '@request_stack'
-            $twig: '@twig'
             $inertiaResponse: '@inertia.response'
         tags:
             - { name: kernel.reset, method: reset }
@@ -41,13 +51,18 @@ services:
             - { name: kernel.event_listener, event: kernel.response, method: onKernelResponse, priority: 0 }
 
     # -------------------------------------------------------------------------
-    # Twig extension: inertia(page) and inertiaHead(page) template functions
+    # Twig extension: inertia(page) and inertiaHead(page) template functions.
+    # Dispatches the SSR gateway once per request; reset() clears the cache
+    # between requests in FrankenPHP/ReactPHP persistent workers.
     # -------------------------------------------------------------------------
     inertia.twig_extension:
         class: Nytodev\InertiaBundle\Twig\InertiaTwigExtension
         public: false
+        arguments:
+            $ssrGateway: '@inertia.ssr_gateway'
         tags:
             - { name: twig.extension }
+            - { name: kernel.reset, method: reset }
 
     # =========================================================================
     # Public aliases for autowiring — inject the FQCN type-hint in controllers

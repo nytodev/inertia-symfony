@@ -4,18 +4,34 @@ declare(strict_types=1);
 
 namespace Nytodev\InertiaBundle\Twig;
 
+use Nytodev\InertiaBundle\Ssr\SsrGatewayInterface;
+use Nytodev\InertiaBundle\Ssr\SsrResponse;
+use Symfony\Contracts\Service\ResetInterface;
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFunction;
 
 /**
  * Provides Twig functions for rendering Inertia root elements:
- *   {{ inertia(page) }}      → <div id="app" data-page="..."></div>
+ *   {{ inertia(page) }}      → SSR body, or <div id="app" data-page="..."></div> as fallback
  *   {{ inertiaHead(page) }}  → SSR head content (empty string when SSR disabled)
+ *
+ * The SSR gateway is called at most once per request; the result is cached until reset().
+ * reset() is called automatically between requests in FrankenPHP/ReactPHP workers
+ * via the kernel.reset container tag.
  *
  * TODO: Inertia v3 — inertia() renders <script type="application/json"> instead of data-page attr
  */
-final class InertiaTwigExtension extends AbstractExtension
+final class InertiaTwigExtension extends AbstractExtension implements ResetInterface
 {
+    private bool $ssrDispatched = false;
+
+    private ?SsrResponse $ssrResponse = null;
+
+    public function __construct(
+        private readonly SsrGatewayInterface $ssrGateway,
+    ) {
+    }
+
     /**
      * @return list<TwigFunction>
      */
@@ -36,13 +52,20 @@ final class InertiaTwigExtension extends AbstractExtension
     }
 
     /**
-     * Renders the root <div id="app" data-page='...'></div> element.
-     * JSON is escaped with JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT.
+     * Renders the Inertia mount point.
+     * Returns the SSR-rendered body when available,
+     * or the classic <div id="app" data-page='...'></div> as fallback.
      *
      * @param array<string, mixed> $page
      */
     public function renderInertia(array $page): string
     {
+        $this->dispatchOnce($page);
+
+        if (null !== $this->ssrResponse) {
+            return $this->ssrResponse->body;
+        }
+
         $json = json_encode(
             $page,
             \JSON_HEX_TAG | \JSON_HEX_APOS | \JSON_HEX_AMP | \JSON_HEX_QUOT | \JSON_THROW_ON_ERROR,
@@ -53,13 +76,37 @@ final class InertiaTwigExtension extends AbstractExtension
 
     /**
      * Renders SSR head content injected by the Node.js SSR server.
-     * Returns an empty string when SSR is disabled.
+     * Returns an empty string when SSR is disabled or the server is unreachable.
      *
      * @param array<string, mixed> $page
      */
     public function renderInertiaHead(array $page): string
     {
-        // TODO: implement
-        return '';
+        $this->dispatchOnce($page);
+
+        return $this->ssrResponse?->head ?? '';
+    }
+
+    /**
+     * Reset SSR state between requests (FrankenPHP / persistent workers).
+     * Tagged with kernel.reset in services.yaml.
+     */
+    public function reset(): void
+    {
+        $this->ssrDispatched = false;
+        $this->ssrResponse = null;
+    }
+
+    /**
+     * @param array<string, mixed> $page
+     */
+    private function dispatchOnce(array $page): void
+    {
+        if ($this->ssrDispatched) {
+            return;
+        }
+
+        $this->ssrDispatched = true;
+        $this->ssrResponse = $this->ssrGateway->dispatch($page);
     }
 }

@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 namespace Nytodev\InertiaBundle;
 
+use Nytodev\InertiaBundle\Ssr\HttpSsrGateway;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
+
+use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
+
 use Symfony\Component\HttpKernel\Bundle\AbstractBundle;
 
 /**
@@ -36,12 +40,19 @@ final class InertiaBundle extends AbstractBundle
         // Never call processConfiguration() here.
         // Inject config values directly onto service definitions (not as global container parameters).
         $services = $container->services();
+
         $services->get('inertia.response')
             ->arg('$rootView', $config['root_view']);
+
         $services->get('inertia.service')
-            ->arg('$rootView', $config['root_view'])
-            ->arg('$version', $config['version'])
-            ->arg('$ssrEnabled', $config['ssr_enabled'])
-            ->arg('$ssrUrl', $config['ssr_url']);
+            ->arg('$version', $config['version']);
+
+        // SSR: when enabled, replace NullSsrGateway with the real HTTP gateway.
+        if ($config['ssr_enabled']) {
+            $services->get('inertia.ssr_gateway')
+                ->class(HttpSsrGateway::class)
+                ->arg('$httpClient', service('http_client'))
+                ->arg('$ssrUrl', $config['ssr_url']);
+        }
     }
 }
