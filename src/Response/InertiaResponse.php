@@ -9,6 +9,7 @@ use Nytodev\InertiaBundle\Props\DeferProp;
 use Nytodev\InertiaBundle\Props\LazyProp;
 use Nytodev\InertiaBundle\Props\MergeProp;
 use Nytodev\InertiaBundle\Props\OnceProp;
+use Nytodev\InertiaBundle\Props\ScrollProp;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -33,6 +34,7 @@ final class InertiaResponse
      * Build and return an HTML or JSON response based on the request type.
      *
      * @param array<string, mixed> $props
+     * @param array<string, mixed> $flash top-level flash data for this response (consumed from session)
      */
     public function build(
         string $component,
@@ -42,6 +44,7 @@ final class InertiaResponse
         Request $request,
         bool $clearHistory = false,
         bool $encryptHistory = false,
+        array $flash = [],
     ): Response {
         $only = $this->parseCsv($request->headers->get('X-Inertia-Partial-Data') ?? '');
         $except = $this->parseCsv($request->headers->get('X-Inertia-Partial-Except') ?? '');
@@ -72,7 +75,9 @@ final class InertiaResponse
         }
 
         // Collect merge arrays AFTER resolving+filtering so excluded keys are absent.
-        [$mergeProps, $prependProps, $deepMergeProps, $matchPropsOn] = $this->collectMergeArrays($props, $resolved);
+        $scrollMergeIntent = $request->headers->get('X-Inertia-Infinite-Scroll-Merge-Intent');
+        [$mergeProps, $prependProps, $deepMergeProps, $matchPropsOn] = $this->collectMergeArrays($props, $resolved, $scrollMergeIntent);
+        $scrollProps = $this->collectScrollProps($props, $resolved, $reset);
 
         // Collect onceProps metadata for keys that survived into resolved props.
         $oncePropsMeta = [];
@@ -81,7 +86,7 @@ final class InertiaResponse
                 $expiresAt = $prop->getExpiresAt();
                 $meta = [
                     'prop' => $prop->getAlias() ?? $key,
-                    'expiresAt' => null !== $expiresAt ? $expiresAt->format(\DateTimeInterface::ATOM) : null,
+                    'expiresAt' => null !== $expiresAt ? $expiresAt->getTimestamp() * 1000 : null,
                 ];
                 if ($prop->isFresh()) {
                     $meta['fresh'] = true;
@@ -104,6 +109,8 @@ final class InertiaResponse
             $isPartial ? $reset : [],
             $oncePropsMeta,
             $matchPropsOn,
+            $scrollProps,
+            $flash,
         );
 
         if ($request->headers->has('X-Inertia')) {
@@ -203,6 +210,18 @@ final class InertiaResponse
                 continue;
             }
 
+            // ScrollProp: same filtering rules as MergeProp.
+            if ($value instanceof ScrollProp) {
+                if ($isPartial && [] !== $except && \in_array($key, $except, true)) {
+                    continue;
+                }
+                if ($isPartial && [] !== $only && !\in_array($key, $only, true)) {
+                    continue;
+                }
+                $resolved[$key] = $value->resolve();
+                continue;
+            }
+
             // Closures: resolve.
             if ($value instanceof \Closure) {
                 $resolved[$key] = $value();
@@ -245,12 +264,14 @@ final class InertiaResponse
      * Collect merge/prepend/deepMerge/matchPropsOn arrays from the original props,
      * restricted to keys that survived into the final resolved props (i.e. not filtered out).
      *
-     * @param array<string, mixed> $rawProps      original props before resolution
-     * @param array<string, mixed> $resolvedProps props after resolution and filtering
+     * @param array<string, mixed> $rawProps          original props before resolution
+     * @param array<string, mixed> $resolvedProps     props after resolution and filtering
+     * @param string|null          $scrollMergeIntent value of X-Inertia-Infinite-Scroll-Merge-Intent header;
+     *                                                when set, overrides the static $prepend flag on ScrollProp
      *
      * @return array{0: list<string>, 1: list<string>, 2: list<string>, 3: list<string>}
      */
-    private function collectMergeArrays(array $rawProps, array $resolvedProps): array
+    private function collectMergeArrays(array $rawProps, array $resolvedProps, ?string $scrollMergeIntent = null): array
     {
         $mergeProps = [];
         $prependProps = [];
@@ -258,26 +279,61 @@ final class InertiaResponse
         $matchPropsOn = [];
 
         foreach ($rawProps as $key => $prop) {
-            if (!$prop instanceof MergeProp) {
-                continue;
-            }
-            // Only include keys that survived the filter.
             if (!\array_key_exists($key, $resolvedProps)) {
                 continue;
             }
-            if ($prop->isDeep()) {
-                $deepMergeProps[] = $key;
-            } elseif ($prop->isPrepend()) {
-                $prependProps[] = $key;
-            } else {
-                $mergeProps[] = $key;
+
+            if ($prop instanceof MergeProp) {
+                if ($prop->isDeep()) {
+                    $deepMergeProps[] = $key;
+                } elseif ($prop->isPrepend()) {
+                    $prependProps[] = $key;
+                } else {
+                    $mergeProps[] = $key;
+                }
+                foreach ($prop->getMatchOn() as $field) {
+                    $matchPropsOn[] = $key.'.'.$field;
+                }
+                continue;
             }
-            foreach ($prop->getMatchOn() as $field) {
-                $matchPropsOn[] = $key.'.'.$field;
+
+            if ($prop instanceof ScrollProp) {
+                $isPrepend = null !== $scrollMergeIntent
+                    ? ('prepend' === $scrollMergeIntent)
+                    : $prop->isPrepend();
+                if ($isPrepend) {
+                    $prependProps[] = $key;
+                } else {
+                    $mergeProps[] = $key;
+                }
             }
         }
 
         return [$mergeProps, $prependProps, $deepMergeProps, $matchPropsOn];
+    }
+
+    /**
+     * Collect scrollProps metadata for all ScrollProp instances that survived into resolved props.
+     * The `reset` field is true when the client sent X-Inertia-Reset for this key.
+     *
+     * @param array<string, mixed> $rawProps
+     * @param array<string, mixed> $resolvedProps
+     * @param string[]             $reset         keys requested to reset via X-Inertia-Reset header
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    private function collectScrollProps(array $rawProps, array $resolvedProps, array $reset = []): array
+    {
+        $scrollProps = [];
+        foreach ($rawProps as $key => $prop) {
+            if ($prop instanceof ScrollProp && \array_key_exists($key, $resolvedProps)) {
+                $meta = $prop->toMetadata();
+                $meta['reset'] = \in_array($key, $reset, true);
+                $scrollProps[$key] = $meta;
+            }
+        }
+
+        return $scrollProps;
     }
 
     /**
@@ -294,6 +350,8 @@ final class InertiaResponse
      * @param list<string>                                         $resetProps     keys to reset before merging
      * @param array<string, array{prop: string, expiresAt: mixed}> $onceProps      once-prop metadata
      * @param list<string>                                         $matchPropsOn   "propKey.fieldKey" entries for dedup
+     * @param array<string, array<string, mixed>>                  $scrollProps    pagination metadata keyed by prop name
+     * @param array<string, mixed>                                 $flash          top-level flash data (always present, even if empty)
      *
      * @return array<string, mixed>
      */
@@ -311,6 +369,8 @@ final class InertiaResponse
         array $resetProps = [],
         array $onceProps = [],
         array $matchPropsOn = [],
+        array $scrollProps = [],
+        array $flash = [],
     ): array {
         $page = [
             'component' => $component,
@@ -319,6 +379,7 @@ final class InertiaResponse
             'version' => $version,
             'clearHistory' => $clearHistory,      // TODO: Inertia v3 — omit if false
             'encryptHistory' => $encryptHistory,  // TODO: Inertia v3 — omit if false
+            'flash' => $flash,
         ];
 
         if ([] !== $deferredProps) {
@@ -347,6 +408,10 @@ final class InertiaResponse
 
         if ([] !== $matchPropsOn) {
             $page['matchPropsOn'] = $matchPropsOn;
+        }
+
+        if ([] !== $scrollProps) {
+            $page['scrollProps'] = $scrollProps;
         }
 
         return $page;

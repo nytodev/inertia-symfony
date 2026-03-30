@@ -8,6 +8,8 @@ use Nytodev\InertiaBundle\Props\AlwaysProp;
 use Nytodev\InertiaBundle\Props\DeferProp;
 use Nytodev\InertiaBundle\Props\LazyProp;
 use Nytodev\InertiaBundle\Props\MergeProp;
+use Nytodev\InertiaBundle\Props\OnceProp;
+use Nytodev\InertiaBundle\Props\ScrollProp;
 use Nytodev\InertiaBundle\Service\Inertia;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -97,6 +99,14 @@ final class TestController
         ]);
     }
 
+    public function onceProp(): Response
+    {
+        return $this->inertia->render('TestComponent', [
+            'plans' => new OnceProp(static fn () => ['plan_a', 'plan_b']),
+            'regular' => 'regular-value',
+        ]);
+    }
+
     public function clearHistory(): Response
     {
         $this->inertia->clearHistory();
@@ -109,5 +119,65 @@ final class TestController
         $this->inertia->encryptHistory();
 
         return $this->inertia->render('TestComponent', ['foo' => 'bar']);
+    }
+
+    public function scrollProps(): Response
+    {
+        return $this->inertia->render('TestComponent', [
+            'posts' => new ScrollProp(static fn () => [['id' => 1], ['id' => 2]], nextPage: 2),
+        ]);
+    }
+
+    public function scrollPropsPrepend(): Response
+    {
+        return $this->inertia->render('TestComponent', [
+            'posts' => new ScrollProp(static fn () => [['id' => 3], ['id' => 4]], nextPage: 1, prepend: true),
+        ]);
+    }
+
+    public function scrollPropsIntent(): Response
+    {
+        return $this->inertia->render('TestComponent', [
+            'posts' => new ScrollProp(static fn () => [['id' => 1]], nextPage: 2, prepend: false),
+        ]);
+    }
+
+    public function scrollPropsIntentPrepend(): Response
+    {
+        return $this->inertia->render('TestComponent', [
+            'posts' => new ScrollProp(static fn () => [['id' => 1]], nextPage: 2, prepend: true),
+        ]);
+    }
+
+    public function scrollPropsFull(): Response
+    {
+        return $this->inertia->render('TestComponent', [
+            'posts' => new ScrollProp(
+                static fn () => [['id' => 5]],
+                pageName: 'page',
+                nextPage: 3,
+                previousPage: 1,
+                currentPage: 2,
+            ),
+        ]);
+    }
+
+    public function flashDirect(): Response
+    {
+        $this->inertia->flash('status', 'saved');
+
+        return $this->inertia->render('TestComponent', ['foo' => 'bar']);
+    }
+
+    public function flashTarget(): Response
+    {
+        return $this->inertia->render('TestComponent', ['foo' => 'bar']);
+    }
+
+    public function flashRedirect(): Response
+    {
+        $this->inertia->flash('status', 'saved');
+
+        return new RedirectResponse('/test/flash-target', 302);
     }
 }

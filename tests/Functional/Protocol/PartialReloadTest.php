@@ -191,6 +191,25 @@ final class PartialReloadTest extends FunctionalTestCase
     }
 
     // -------------------------------------------------------------------------
+    // OnceProp — filtered by $only partial-data list
+    // -------------------------------------------------------------------------
+
+    public function testOncePropExcludedByOnlyFilterAbsentFromResponse(): void
+    {
+        // Partial reload requests only 'regular' — 'plans' (OnceProp) must be absent.
+        $this->client->request('GET', '/test/once-prop', [], [], [
+            'HTTP_X_INERTIA' => 'true',
+            'HTTP_X_INERTIA_PARTIAL_DATA' => 'regular',
+            'HTTP_X_INERTIA_PARTIAL_COMPONENT' => 'TestComponent',
+        ]);
+        self::assertResponseIsSuccessful();
+        $data = json_decode((string) $this->client->getResponse()->getContent(), true);
+        self::assertIsArray($data['props']);
+        self::assertArrayHasKey('regular', $data['props']);
+        self::assertArrayNotHasKey('plans', $data['props']);
+    }
+
+    // -------------------------------------------------------------------------
     // BUG 3 — MergeProp keys must not appear in mergeProps after $except filtering
     // -------------------------------------------------------------------------
 

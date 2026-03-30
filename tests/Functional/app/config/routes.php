@@ -30,6 +30,9 @@ return static function (RoutingConfigurator $routes): void {
     $routes->add('test_inertia_defer', '/test/defer')
         ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'defer']);
 
+    $routes->add('test_inertia_once_prop', '/test/once-prop')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'onceProp']);
+
     $routes->add('test_inertia_clear_history', '/test/clear-history')
         ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'clearHistory']);
 
@@ -44,4 +47,29 @@ return static function (RoutingConfigurator $routes): void {
 
     $routes->add('test_inertia_match_props_on_deep', '/test/match-props-on-deep')
         ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'matchPropsOnDeep']);
+
+    $routes->add('test_inertia_scroll_props', '/test/scroll-props')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'scrollProps']);
+
+    $routes->add('test_inertia_scroll_props_prepend', '/test/scroll-props-prepend')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'scrollPropsPrepend']);
+
+    $routes->add('test_inertia_scroll_props_intent', '/test/scroll-props-intent')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'scrollPropsIntent']);
+
+    $routes->add('test_inertia_scroll_props_intent_prepend', '/test/scroll-props-intent-prepend')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'scrollPropsIntentPrepend']);
+
+    $routes->add('test_inertia_scroll_props_full', '/test/scroll-props-full')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'scrollPropsFull']);
+
+    $routes->add('test_inertia_flash_direct', '/test/flash-direct')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'flashDirect']);
+
+    $routes->add('test_inertia_flash_target', '/test/flash-target')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'flashTarget']);
+
+    $routes->add('test_inertia_flash_redirect', '/test/flash-redirect')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'flashRedirect'])
+        ->methods(['PUT']);
 };
