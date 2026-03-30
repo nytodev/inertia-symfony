@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nytodev\InertiaBundle\Service;
 
+use Nytodev\InertiaBundle\Props\AlwaysProp;
 use Nytodev\InertiaBundle\Props\DeferProp;
 use Nytodev\InertiaBundle\Props\LazyProp;
 use Nytodev\InertiaBundle\Props\MergeProp;
@@ -11,19 +12,24 @@ use Nytodev\InertiaBundle\Props\OnceProp;
 use Nytodev\InertiaBundle\Response\InertiaResponse;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Contracts\Service\ResetInterface;
 use Twig\Environment;
 
 /**
  * Main Inertia service. Manages shared props and delegates response building
  * to InertiaResponse.
  */
-final class Inertia
+final class Inertia implements ResetInterface
 {
     /** @var array<string, mixed> */
     private array $sharedProps = [];
 
     /** @var array<string, mixed> */
     private array $sharedOnceProps = [];
+
+    private bool $clearHistory = false;
+
+    private bool $encryptHistory = false;
 
     public function __construct(
         private readonly RequestStack $requestStack,
@@ -46,12 +52,17 @@ final class Inertia
      *
      * @param array<string, mixed> $props
      */
-    public function render(string $component, array $props = [], ?Response $response = null): Response
+    public function render(string $component, array $props = []): Response
     {
         $request = $this->requestStack->getCurrentRequest()
             ?? throw new \LogicException('No current request.');
 
         $mergedProps = array_merge($this->sharedProps, $this->sharedOnceProps, $props);
+
+        $clearHistory = $this->clearHistory;
+        $encryptHistory = $this->encryptHistory;
+        $this->clearHistory = false;
+        $this->encryptHistory = false;
 
         return $this->inertiaResponse->build(
             $component,
@@ -59,6 +70,8 @@ final class Inertia
             $request->getRequestUri(),
             $this->version,
             $request,
+            $clearHistory,
+            $encryptHistory,
         );
     }
 
@@ -108,6 +121,41 @@ final class Inertia
     public function flushSharedOnceProps(): void
     {
         $this->sharedOnceProps = [];
+    }
+
+    /**
+     * Reset service state between requests (FrankenPHP / ReactPHP persistent workers).
+     * Called automatically by the container via the kernel.reset tag.
+     */
+    public function reset(): void
+    {
+        $this->sharedProps = [];
+        $this->sharedOnceProps = [];
+        $this->clearHistory = false;
+        $this->encryptHistory = false;
+    }
+
+    /**
+     * Signal that the browser history entry for this response should be cleared.
+     * The flag is consumed on the next render() call and then reset to false.
+     */
+    public function clearHistory(): void
+    {
+        $this->clearHistory = true;
+    }
+
+    /**
+     * Signal that the browser history entry for this response should be encrypted.
+     * The flag is consumed on the next render() call and then reset to false.
+     */
+    public function encryptHistory(): void
+    {
+        $this->encryptHistory = true;
+    }
+
+    public function always(\Closure $callback): AlwaysProp
+    {
+        return new AlwaysProp($callback);
     }
 
     public function lazy(\Closure $callback): LazyProp
