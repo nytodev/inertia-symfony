@@ -84,18 +84,34 @@ Returns JSON page object with headers:
 - `X-Inertia: true`
 - `Vary: X-Inertia`
 
-### Page object required fields (v2)
+### Page object fields (v2)
+
+**Always present:**
 ```json
 {
     "component": "string",
     "props": { "errors": {} },
-    "url": "string",
+    "url": "/path?query",
     "version": "string|null",
     "clearHistory": false,
     "encryptHistory": false
 }
 ```
-`clearHistory` and `encryptHistory` are **always present** in v2, even if `false`.
+- `url` is a **relative path + query string** (e.g. `/users?page=2`), never an absolute URL with scheme/host
+- `clearHistory` and `encryptHistory` are **always present** in v2, even if `false` — this changes in v3
+
+**Conditionally present (omitted if empty):**
+```json
+{
+    "deferredProps":  { "default": ["comments"], "sidebar": ["related"] },
+    "mergeProps":     ["posts"],
+    "prependProps":   ["notifications"],
+    "deepMergeProps": ["conversations"],
+    "matchPropsOn":   ["posts.id"],
+    "onceProps":      { "plans": { "prop": "plans", "expiresAt": null } },
+    "scrollProps":    { "posts": { "pageName": "page", "nextPage": 2 } }
+}
+```
 
 ### Asset versioning
 - `X-Inertia-Version` header differs from server version → `409 Conflict` + `X-Inertia-Location` header
@@ -108,15 +124,22 @@ Returns JSON page object with headers:
 
 ### Partial reloads
 - `X-Inertia-Partial-Data` → include only listed props (CSV)
-- `X-Inertia-Partial-Except` → exclude listed props (CSV), if both present `Except` wins
+- `X-Inertia-Partial-Except` → exclude listed props (CSV); if both headers present, `Except` wins
+- `X-Inertia-Reset` → reset (clear) listed props before merging (used with merge props)
 - `errors` prop is **always** included regardless of partial reload filters
-- `LazyProp` closures ARE resolved in partial reloads (skipped only on full first render)
+- `LazyProp` (optional) closures are **only** resolved when the key is explicitly in `X-Inertia-Partial-Data` — they are NOT resolved in except-only partial reloads or full renders
 
-### Props types
-- `LazyProp` — closure, not evaluated on full first render, only when explicitly requested
-- `DeferProp` — excluded from initial response; appears in `deferredProps`; client fetches separately
-- `OnceProp` — resolved once; skipped if key in `X-Inertia-Except-Once-Props` header
-- `MergeProp` — included in `mergeProps`/`prependProps`/`deepMergeProps` arrays
+### Props types and evaluation
+
+| Type | Standard visit | Partial reload | Notes |
+|------|---------------|----------------|-------|
+| `mixed` (direct value) | ✅ Always | ✅ Optionally | Resolved always |
+| `Closure` | ✅ Always | ✅ Optionally | Lazy-evaluated |
+| `LazyProp` (`optional()`) | ❌ Never | ✅ Only if in `$only` | Must be explicitly requested |
+| `AlwaysProp` (`always()`) | ✅ Always | ✅ Always | Included even in partial reloads |
+| `DeferProp` (`defer()`) | ❌ Never (in `deferredProps`) | ✅ Separate XHR | Client fetches per group |
+| `OnceProp` (`once()`) | ✅ First time | ❌ Skip if in `X-Inertia-Except-Once-Props` | Client caches; supports `.as()`, `.until()`, `.fresh()` |
+| `MergeProp` (`merge()`) | ✅ Yes | ✅ Yes | Populates `mergeProps`/`prependProps`/`deepMergeProps` |
 
 ---
 
@@ -186,12 +209,15 @@ docs(readme): add Flex installation instructions
 
 ## Inertia v2 → v3 migration notes
 
-Mark future migration points with `// TODO: Inertia v3`:
-- `data-page` attribute (v2) → `<script type="application/json">` tag (v3)
-- `clearHistory: false` always present (v2) → omitted if false (v3)
-- `encryptHistory: false` always present (v2) → omitted if false (v3)
-- `sharedProps` array → absent in v2, added in v3
-- `X-Inertia-Redirect` header → absent in v2, added in v3
+**v3.0.0 released 2026-03-24.** This project currently targets v2. Mark future migration points with `// TODO: Inertia v3`:
+
+| Area | v2 (current) | v3 |
+|------|-------------|-----|
+| HTML embedding | `<div id="app" data-page='...'>` attribute | `<script type="application/json">` tag |
+| `clearHistory` | Always present, even if `false` | Omitted when `false` |
+| `encryptHistory` | Always present, even if `false` | Omitted when `false` |
+| `sharedProps` | Absent from page object | Added as metadata field |
+| `X-Inertia-Redirect` | Absent | Added response header |
 
 ---
 

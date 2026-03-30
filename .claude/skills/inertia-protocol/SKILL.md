@@ -9,17 +9,28 @@ description: Complete reference for the Inertia.js v2 server-side protocol. Auto
 
 ```php
 // Detect an Inertia XHR request
-$isInertia = $request->headers->has('X-Inertia') 
+$isInertia = $request->headers->has('X-Inertia')
     && 'true' === $request->headers->get('X-Inertia');
 
-// Get client asset version
+// Asset versioning
 $clientVersion = $request->headers->get('X-Inertia-Version');
 
 // Partial reload detection
-$isPartial = $request->headers->has('X-Inertia-Partial-Component');
-$onlyProps  = $request->headers->get('X-Inertia-Partial-Data');    // CSV string
-$exceptProps = $request->headers->get('X-Inertia-Partial-Except'); // CSV string
-$onceProps  = $request->headers->get('X-Inertia-Except-Once-Props'); // CSV string
+$isPartial    = $request->headers->has('X-Inertia-Partial-Component');
+$partialComp  = $request->headers->get('X-Inertia-Partial-Component'); // component name
+$onlyProps    = $request->headers->get('X-Inertia-Partial-Data');       // CSV: include list
+$exceptProps  = $request->headers->get('X-Inertia-Partial-Except');     // CSV: exclude list
+$resetProps   = $request->headers->get('X-Inertia-Reset');              // CSV: reset before merge
+$onceProps    = $request->headers->get('X-Inertia-Except-Once-Props');  // CSV: already-loaded once keys
+
+// Other standard headers sent by the client (no server action required):
+// X-Requested-With: XMLHttpRequest
+// Accept: text/html, application/xhtml+xml
+// Purpose: prefetch               (for prefetch requests)
+// Cache-Control: no-cache         (for reload requests)
+// X-Inertia-Error-Bag: {bag}      (validation error bag name)
+// X-Inertia-Infinite-Scroll-Merge-Intent: append|prepend
+// Precognition: true              (Precognition validation, out of scope)
 ```
 
 ## Response Types
@@ -46,15 +57,15 @@ $response->headers->set('Vary', 'X-Inertia');
 
 ## Page Object (v2)
 
-```php
 $pageObject = [
-    'component'      => 'User/Edit',          // required: string
-    'props'          => ['errors' => [], ...], // required: always has 'errors' key
-    'url'            => '/user/123',           // required: string
-    'version'        => '6b16b94d7c51',       // required: string|null
-    'clearHistory'   => false,                 // required in v2: bool (always present)
-    'encryptHistory' => false,                 // required in v2: bool (always present)
-    // Optional (omit if empty/null):
+    // Always present in v2:
+    'component'      => 'User/Edit',          // string
+    'props'          => ['errors' => [], ...], // always has 'errors' key
+    'url'            => '/user/123',           // RELATIVE path + query (no scheme/host)
+    'version'        => '6b16b94d7c51',        // string|null
+    'clearHistory'   => false,                 // always present in v2, even if false
+    'encryptHistory' => false,                 // always present in v2, even if false
+    // Conditional (omit if empty):
     'deferredProps'  => ['default' => ['comments'], 'sidebar' => ['related']],
     'mergeProps'     => ['posts'],
     'prependProps'   => ['notifications'],
@@ -92,12 +103,14 @@ if (
 
 ## 302 → 303 Redirect Conversion
 
+Only on PUT, PATCH, DELETE — **not** POST. Official spec: "When redirecting after a PUT, PATCH, or DELETE request, you must use a 303 response code."
+
 ```php
 // In kernel.response listener:
 $method = $request->getMethod();
 $status = $response->getStatusCode();
 
-if (302 === $status && !in_array($method, ['GET', 'HEAD'], true)) {
+if (302 === $status && \in_array($method, ['PUT', 'PATCH', 'DELETE'], true)) {
     $response->setStatusCode(303);
 }
 ```
@@ -152,13 +165,17 @@ private function parseHeaderCsv(string $header): array
 
 ## Props Types Summary
 
-| Type | Class | Resolved on first render? | Resolved on partial? | Page object key |
-|------|-------|--------------------------|---------------------|-----------------|
-| Normal value | `mixed` | ✅ Yes | ✅ Yes | `props` |
-| LazyProp | `LazyProp` (Closure wrapper) | ❌ No | ✅ Yes (if requested) |`props` |
-| DeferProp | `DeferProp` | ❌ No | ✅ Yes (via separate XHR) | `deferredProps` config |
-| OnceProp | `OnceProp` | ✅ First time | ❌ Skipped if in `X-Inertia-Except-Once-Props` | `onceProps` config |
-| MergeProp | `MergeProp` | ✅ Yes | ✅ Yes | `props` + `mergeProps` array |
+| Type | Class | Standard visit | Partial reload | Page object key |
+|------|-------|---------------|----------------|-----------------|
+| Direct value | `mixed` | ✅ Always | ✅ Optionally | `props` |
+| Closure | `Closure` | ✅ Always | ✅ Optionally | `props` |
+| LazyProp (`optional()`) | `LazyProp` | ❌ Never | ✅ Only if in `$only` list | `props` |
+| AlwaysProp (`always()`) | *(not yet impl.)* | ✅ Always | ✅ Always | `props` |
+| DeferProp (`defer()`) | `DeferProp` | ❌ Never | ✅ Separate XHR per group | `deferredProps` metadata |
+| OnceProp (`once()`) | `OnceProp` | ✅ First time | ❌ Skip if in `X-Inertia-Except-Once-Props` | `onceProps` metadata |
+| MergeProp (`merge()`) | `MergeProp` | ✅ Yes | ✅ Yes | `props` + `mergeProps`/`prependProps`/`deepMergeProps` |
+
+**OnceProp features:** `.as('key')` — share across pages with different prop names; `.until($date)` — expiry; `.fresh()` — force re-resolve
 
 ## HTTP Status Codes Summary
 

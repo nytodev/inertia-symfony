@@ -26,13 +26,20 @@ When `X-Inertia: true` header is detected:
 - [ ] HTTP status is 200
 
 ### 3. Page Object Structure
-Required fields (always present):
+Required fields (always present in v2):
 - [ ] `component` (string) — JavaScript component name
 - [ ] `props` (object) — always contains `errors: {}` minimum
-- [ ] `url` (string) — current request URL
+- [ ] `url` (string) — **relative** path + query string, e.g. `/users?page=2` (no scheme/host)
 - [ ] `version` (string|null) — asset version
-- [ ] `clearHistory` (bool) — always present in v2, even if false
-- [ ] `encryptHistory` (bool) — always present in v2, even if false
+- [ ] `clearHistory` (bool) — always present in v2, even if `false` (omitted when false in v3)
+- [ ] `encryptHistory` (bool) — always present in v2, even if `false` (omitted when false in v3)
+
+Conditional fields (omitted when empty/not used):
+- [ ] `deferredProps` — `{group: [keys]}` map
+- [ ] `mergeProps`, `prependProps`, `deepMergeProps` — arrays of prop keys
+- [ ] `matchPropsOn` — array of `propName.fieldName` strings
+- [ ] `onceProps` — `{key: {prop: string, expiresAt: int|null}}` map
+- [ ] `scrollProps` — scroll/pagination metadata
 
 ### 4. Asset Versioning (409 Conflict)
 When `X-Inertia-Version` header differs from server version:
@@ -44,6 +51,7 @@ When `X-Inertia-Version` header differs from server version:
 ### 5. Redirect Handling
 - [ ] After PUT/PATCH/DELETE → 302 is converted to 303 See Other
 - [ ] After GET requests → standard 302 redirect behavior preserved
+- [ ] After POST requests → **302 stays 302** (POST is NOT in the conversion list)
 - [ ] External redirects include `X-Inertia-Location` header with 409
 
 ### 6. Partial Reloads
@@ -53,13 +61,14 @@ When `X-Inertia-Partial-Component` header is present:
 - [ ] If both headers present, `Except` takes precedence
 - [ ] `errors` prop is ALWAYS included regardless of partial reload filters
 - [ ] Component name in response matches `X-Inertia-Partial-Component` (if different page → no partial)
-- [ ] LazyProps ARE resolved for partial reloads (only skipped on full first renders)
+- [ ] LazyProps are ONLY resolved when the key is explicitly in `X-Inertia-Partial-Data` — NOT in except-only partials
 
 ### 7. Props Types
-- [ ] **LazyProp**: Closure that is NOT evaluated on full first render, only when explicitly requested
-- [ ] **DeferProp**: Excluded from initial response; appears in `deferredProps` config; client fetches separately
-- [ ] **OnceProp**: Resolved on first load; client sends loaded keys in `X-Inertia-Except-Once-Props`; server skips if already loaded
-- [ ] **MergeProp**: Included in `mergeProps`/`prependProps`/`deepMergeProps` arrays in page object
+- [ ] **LazyProp** (`optional()`): Never on full render; only when key is in `$only` list
+- [ ] **DeferProp** (`defer()`): Excluded from initial response; appears in `deferredProps` config; client fetches separately per group
+- [ ] **OnceProp** (`once()`): Resolved on first load; client sends loaded keys in `X-Inertia-Except-Once-Props`; server skips if already loaded; supports `.as()`, `.until()`, `.fresh()`
+- [ ] **MergeProp** (`merge()`): Included in `mergeProps`/`prependProps`/`deepMergeProps` arrays in page object
+- [ ] **AlwaysProp** (`always()`): Always included even in partial reloads *(not yet implemented in this bundle)*
 
 ### 8. Shared Props
 - [ ] Shared props (via `Inertia::share()`) are merged with page props on every response
@@ -103,8 +112,8 @@ if ($response->getStatusCode() === 302) {
     $response->setStatusCode(303); // too broad!
 }
 
-// ✅ CORRECT: only after non-GET requests
-if ($response->getStatusCode() === 302 && !in_array($method, ['GET', 'HEAD'])) {
+// ✅ CORRECT: only after PUT/PATCH/DELETE (spec is explicit — POST stays 302)
+if ($response->getStatusCode() === 302 && in_array($method, ['PUT', 'PATCH', 'DELETE'])) {
     $response->setStatusCode(303);
 }
 ```
