@@ -5,12 +5,10 @@ declare(strict_types=1);
 namespace Nytodev\InertiaBundle\EventListener;
 
 use Nytodev\InertiaBundle\Service\Inertia;
-use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\Session\FlashBagAwareSessionInterface;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\Event\ResponseEvent;
-use Symfony\Component\HttpKernel\KernelEvents;
 
 /**
  * Handles two Inertia protocol concerns at the kernel level:
@@ -21,21 +19,13 @@ use Symfony\Component\HttpKernel\KernelEvents;
  *
  * kernel.response (priority 0):
  *   - 302 after PUT/PATCH/DELETE → 303 See Other
- *   - Flush shared once-props after response is built
+ *   - Flush shared once-props after a successful Inertia render
  */
-final class InertiaListener implements EventSubscriberInterface
+final class InertiaListener
 {
     public function __construct(
         private readonly Inertia $inertia,
     ) {
-    }
-
-    public static function getSubscribedEvents(): array
-    {
-        return [
-            KernelEvents::REQUEST => ['onKernelRequest', 20],
-            KernelEvents::RESPONSE => ['onKernelResponse', 0],
-        ];
     }
 
     public function onKernelRequest(RequestEvent $event): void
@@ -101,6 +91,11 @@ final class InertiaListener implements EventSubscriberInterface
             $response->setStatusCode(303);
         }
 
-        $this->inertia->flushSharedOnceProps();
+        // Flush once-props only after an actual Inertia JSON render (the response carries
+        // the X-Inertia header). This avoids flushing on 409 version conflicts or redirects
+        // where no render occurred and the once-props were never consumed.
+        if ($response->headers->has('X-Inertia')) {
+            $this->inertia->flushSharedOnceProps();
+        }
     }
 }
