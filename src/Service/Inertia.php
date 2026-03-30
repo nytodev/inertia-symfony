@@ -9,11 +9,11 @@ use Nytodev\InertiaBundle\Props\DeferProp;
 use Nytodev\InertiaBundle\Props\LazyProp;
 use Nytodev\InertiaBundle\Props\MergeProp;
 use Nytodev\InertiaBundle\Props\OnceProp;
+use Nytodev\InertiaBundle\Props\ScrollProp;
 use Nytodev\InertiaBundle\Response\InertiaResponse;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\Service\ResetInterface;
-use Twig\Environment;
 
 /**
  * Main Inertia service. Manages shared props and delegates response building
@@ -27,22 +27,21 @@ final class Inertia implements ResetInterface
     /** @var array<string, mixed> */
     private array $sharedOnceProps = [];
 
+    /**
+     * In-memory fallback for flash data when no session is available.
+     *
+     * @var array<string, mixed>
+     */
+    private array $flashData = [];
+
     private bool $clearHistory = false;
 
     private bool $encryptHistory = false;
 
     public function __construct(
         private readonly RequestStack $requestStack,
-        /** @phpstan-ignore property.onlyWritten (reserved for SSR phase 2) */
-        private readonly Environment $twig,
         private readonly InertiaResponse $inertiaResponse,
-        /** @phpstan-ignore property.onlyWritten (reserved for SSR phase 2) */
-        private readonly string $rootView,
         private readonly ?string $version,
-        /** @phpstan-ignore property.onlyWritten (reserved for SSR phase 2) */
-        private readonly bool $ssrEnabled,
-        /** @phpstan-ignore property.onlyWritten (reserved for SSR phase 2) */
-        private readonly string $ssrUrl,
     ) {
     }
 
@@ -64,6 +63,8 @@ final class Inertia implements ResetInterface
         $this->clearHistory = false;
         $this->encryptHistory = false;
 
+        $flash = $this->consumeFlash($request);
+
         return $this->inertiaResponse->build(
             $component,
             $mergedProps,
@@ -72,6 +73,7 @@ final class Inertia implements ResetInterface
             $request,
             $clearHistory,
             $encryptHistory,
+            $flash,
         );
     }
 
@@ -124,6 +126,33 @@ final class Inertia implements ResetInterface
     }
 
     /**
+     * Flash a key/value pair into the page object for the next Inertia render.
+     *
+     * When a session is available, the value is stored in the session under
+     * '_inertia_flash' so it survives redirects (e.g. POST → 303 → GET).
+     * When no session is available (stateless routes), the value is kept in
+     * memory and is available only within the same request lifecycle.
+     *
+     * NOTE: Flash values must be serializable (same constraint as any session data).
+     */
+    public function flash(string $key, mixed $value): void
+    {
+        $request = $this->requestStack->getCurrentRequest();
+
+        if (null !== $request && $request->hasSession()) {
+            $session = $request->getSession();
+            /** @var array<string, mixed> $existing */
+            $existing = $session->get('_inertia_flash', []);
+            $existing[$key] = $value;
+            $session->set('_inertia_flash', $existing);
+
+            return;
+        }
+
+        $this->flashData[$key] = $value;
+    }
+
+    /**
      * Reset service state between requests (FrankenPHP / ReactPHP persistent workers).
      * Called automatically by the container via the kernel.reset tag.
      */
@@ -131,8 +160,31 @@ final class Inertia implements ResetInterface
     {
         $this->sharedProps = [];
         $this->sharedOnceProps = [];
+        $this->flashData = [];
         $this->clearHistory = false;
         $this->encryptHistory = false;
+    }
+
+    /**
+     * Read and clear all pending flash data (session + in-memory fallback).
+     * Called exactly once per render() invocation.
+     *
+     * @return array<string, mixed>
+     */
+    private function consumeFlash(\Symfony\Component\HttpFoundation\Request $request): array
+    {
+        $flash = $this->flashData;
+        $this->flashData = [];
+
+        if ($request->hasSession()) {
+            $session = $request->getSession();
+            /** @var array<string, mixed> $sessionFlash */
+            $sessionFlash = $session->get('_inertia_flash', []);
+            $session->remove('_inertia_flash');
+            $flash = array_merge($sessionFlash, $flash);
+        }
+
+        return $flash;
     }
 
     /**
@@ -179,5 +231,16 @@ final class Inertia implements ResetInterface
     public function merge(\Closure $callback, bool $prepend = false, bool $deep = false, string|array $matchOn = []): MergeProp
     {
         return new MergeProp($callback, $prepend, $deep, $matchOn);
+    }
+
+    public function scroll(
+        \Closure $callback,
+        string $pageName = 'page',
+        int|string|null $nextPage = null,
+        int|string|null $previousPage = null,
+        int|string|null $currentPage = null,
+        bool $prepend = false,
+    ): ScrollProp {
+        return new ScrollProp($callback, $pageName, $nextPage, $previousPage, $currentPage, $prepend);
     }
 }

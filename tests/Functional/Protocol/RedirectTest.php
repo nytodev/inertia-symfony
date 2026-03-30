@@ -45,13 +45,10 @@ final class RedirectTest extends FunctionalTestCase
         self::assertResponseStatusCodeSame(303);
     }
 
-    public function testRedirectAfter302OnPostConvertedTo303(): void
+    public function testRedirectAfter302OnPostRemains302(): void
     {
-        // POST is not in PUT/PATCH/DELETE — should stay 302
-        // Actually per spec, POST 302 → 303 is also done in many implementations
-        // but the Inertia spec only mentions PUT/PATCH/DELETE
+        // POST is not in PUT/PATCH/DELETE — 302 must NOT be converted to 303.
         $this->client->request('POST', '/test/redirect', [], [], ['HTTP_X_INERTIA' => 'true']);
-        // POST produces 302 which should NOT be converted (only PUT/PATCH/DELETE)
         self::assertResponseStatusCodeSame(302);
     }
 }
