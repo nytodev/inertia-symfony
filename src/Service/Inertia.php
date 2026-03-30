@@ -173,8 +173,8 @@ final class Inertia implements ResetInterface
         return new OnceProp($callback);
     }
 
-    public function merge(\Closure $callback, bool $prepend = false, bool $deep = false): MergeProp
+    public function merge(\Closure $callback, bool $prepend = false, bool $deep = false, ?string $matchOn = null): MergeProp
     {
-        return new MergeProp($callback, $prepend, $deep);
+        return new MergeProp($callback, $prepend, $deep, $matchOn);
     }
 }

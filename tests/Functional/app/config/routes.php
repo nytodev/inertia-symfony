@@ -35,4 +35,7 @@ return static function (RoutingConfigurator $routes): void {
 
     $routes->add('test_inertia_encrypt_history', '/test/encrypt-history')
         ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'encryptHistory']);
+
+    $routes->add('test_inertia_match_props_on', '/test/match-props-on')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'matchPropsOn']);
 };

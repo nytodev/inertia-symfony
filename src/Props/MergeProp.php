@@ -14,6 +14,7 @@ final class MergeProp
         private readonly \Closure $callback,
         private readonly bool $prepend = false,
         private readonly bool $deep = false,
+        private readonly ?string $matchOn = null,
     ) {
     }
 
@@ -30,5 +31,10 @@ final class MergeProp
     public function isDeep(): bool
     {
         return $this->deep;
+    }
+
+    public function getMatchOn(): ?string
+    {
+        return $this->matchOn;
     }
 }

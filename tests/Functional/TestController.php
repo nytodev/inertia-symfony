@@ -59,6 +59,14 @@ final class TestController
         ]);
     }
 
+    public function matchPropsOn(): Response
+    {
+        return $this->inertia->render('TestComponent', [
+            'merge_a' => new MergeProp(static fn () => [['id' => 1], ['id' => 2]], matchOn: 'id'),
+            'merge_b' => new MergeProp(static fn () => [['id' => 3], ['id' => 4]]),
+        ]);
+    }
+
     public function defer(): Response
     {
         return $this->inertia->render('TestComponent', [

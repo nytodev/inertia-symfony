@@ -72,7 +72,7 @@ final class InertiaResponse
         }
 
         // BUG 3 fix: collect merge arrays AFTER resolving+filtering so excluded keys are absent.
-        [$mergeProps, $prependProps, $deepMergeProps] = $this->collectMergeArrays($props, $resolved);
+        [$mergeProps, $prependProps, $deepMergeProps, $matchPropsOn] = $this->collectMergeArrays($props, $resolved);
 
         // Collect onceProps metadata for keys that survived into resolved props.
         $oncePropsMeta = [];
@@ -103,6 +103,7 @@ final class InertiaResponse
             $deepMergeProps,
             $isPartial ? $reset : [],
             $oncePropsMeta,
+            $matchPropsOn,
         );
 
         if ($request->headers->has('X-Inertia')) {
@@ -243,19 +244,20 @@ final class InertiaResponse
     }
 
     /**
-     * Collect merge/prepend/deepMerge arrays from the original props, restricted to
-     * keys that survived into the final resolved props (i.e. not filtered out).
+     * Collect merge/prepend/deepMerge/matchPropsOn arrays from the original props,
+     * restricted to keys that survived into the final resolved props (i.e. not filtered out).
      *
      * @param array<string, mixed> $rawProps      original props before resolution
      * @param array<string, mixed> $resolvedProps props after resolution and filtering
      *
-     * @return array{0: list<string>, 1: list<string>, 2: list<string>}
+     * @return array{0: list<string>, 1: list<string>, 2: list<string>, 3: list<string>}
      */
     private function collectMergeArrays(array $rawProps, array $resolvedProps): array
     {
         $mergeProps = [];
         $prependProps = [];
         $deepMergeProps = [];
+        $matchPropsOn = [];
 
         foreach ($rawProps as $key => $prop) {
             if (!$prop instanceof MergeProp) {
@@ -272,9 +274,13 @@ final class InertiaResponse
             } else {
                 $mergeProps[] = $key;
             }
+            $matchOn = $prop->getMatchOn();
+            if (null !== $matchOn) {
+                $matchPropsOn[] = $key.'.'.$matchOn;
+            }
         }
 
-        return [$mergeProps, $prependProps, $deepMergeProps];
+        return [$mergeProps, $prependProps, $deepMergeProps, $matchPropsOn];
     }
 
     /**
@@ -290,6 +296,7 @@ final class InertiaResponse
      * @param list<string>                                         $deepMergeProps
      * @param list<string>                                         $resetProps     keys to reset before merging
      * @param array<string, array{prop: string, expiresAt: mixed}> $onceProps      once-prop metadata
+     * @param list<string>                                         $matchPropsOn   "propKey.fieldKey" entries for dedup
      *
      * @return array<string, mixed>
      */
@@ -306,6 +313,7 @@ final class InertiaResponse
         array $deepMergeProps = [],
         array $resetProps = [],
         array $onceProps = [],
+        array $matchPropsOn = [],
     ): array {
         $page = [
             'component' => $component,
@@ -338,6 +346,10 @@ final class InertiaResponse
 
         if ([] !== $onceProps) {
             $page['onceProps'] = $onceProps;
+        }
+
+        if ([] !== $matchPropsOn) {
+            $page['matchPropsOn'] = $matchPropsOn;
         }
 
         return $page;
