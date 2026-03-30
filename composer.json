@@ -22,7 +22,6 @@
         "phpunit/phpunit": "^10.5 || ^11.0",
         "phpstan/phpstan": "^1.12",
         "friendsofphp/php-cs-fixer": "^3.65",
-        "symfony/test-pack": "^1.1",
         "symfony/browser-kit": "^6.4 || ^7.0 || ^8.0",
         "symfony/yaml": "^6.4 || ^7.0 || ^8.0"
     },
