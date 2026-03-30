@@ -30,12 +30,8 @@ final class AbstractInertiaControllerTest extends TestCase
         $inertiaResponse = new InertiaResponse($twig, 'base.html.twig');
         $this->inertia = new Inertia(
             $this->requestStack,
-            $twig,
             $inertiaResponse,
-            'base.html.twig',
             null,
-            false,
-            '',
         );
     }
 

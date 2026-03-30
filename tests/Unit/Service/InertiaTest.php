@@ -23,28 +23,23 @@ final class InertiaTest extends TestCase
 {
     /** @var RequestStack&MockObject */
     private RequestStack $requestStack;
-    private Environment $twig;
     private InertiaResponse $inertiaResponse;
 
     protected function setUp(): void
     {
         $this->requestStack = $this->createMock(RequestStack::class);
-        $this->twig = new Environment(new ArrayLoader([
+        $twig = new Environment(new ArrayLoader([
             'base.html.twig' => '<body>{{ page|json_encode }}</body>',
         ]));
-        $this->inertiaResponse = new InertiaResponse($this->twig, 'base.html.twig');
+        $this->inertiaResponse = new InertiaResponse($twig, 'base.html.twig');
     }
 
     private function makeService(?string $version = null): Inertia
     {
         return new Inertia(
             $this->requestStack,
-            $this->twig,
             $this->inertiaResponse,
-            'base.html.twig',
             $version,
-            false,
-            '',
         );
     }
 

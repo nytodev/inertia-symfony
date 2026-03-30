@@ -25,7 +25,7 @@ final class InertiaResponseTest extends TestCase
         $twig = new Environment(new ArrayLoader([
             'base.html.twig' => '<body>{{ inertia(page) }}</body>',
         ]));
-        $twig->addExtension(new InertiaTwigExtension());
+        $twig->addExtension(new InertiaTwigExtension(new \Nytodev\InertiaBundle\Ssr\NullSsrGateway()));
         $this->response = new InertiaResponse($twig, 'base.html.twig');
     }
 
@@ -582,7 +582,8 @@ final class InertiaResponseTest extends TestCase
 
         $data = json_decode((string) $result->getContent(), true);
         self::assertIsArray($data);
-        self::assertNotNull($data['onceProps']['plans']['expiresAt']);
+        self::assertIsInt($data['onceProps']['plans']['expiresAt']);
+        self::assertSame((new \DateTimeImmutable('2030-06-01T12:00:00+00:00'))->getTimestamp() * 1000, $data['onceProps']['plans']['expiresAt']);
     }
 
     public function testBuildOncePropsMetadataSetsFreshWhenFreshModifierSet(): void

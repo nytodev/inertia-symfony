@@ -32,7 +32,7 @@ final class InertiaListenerTest extends TestCase
         $twig = new Environment(new ArrayLoader([]));
         $inertiaResponse = new InertiaResponse($twig, 'base.html.twig');
 
-        $this->inertia = new Inertia($requestStack, $twig, $inertiaResponse, 'base.html.twig', 'server-v1', false, '');
+        $this->inertia = new Inertia($requestStack, $inertiaResponse, 'server-v1');
         $this->listener = new InertiaListener($this->inertia);
     }
 
