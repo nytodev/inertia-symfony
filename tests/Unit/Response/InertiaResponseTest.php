@@ -592,7 +592,9 @@ final class InertiaResponseTest extends TestCase
 
         $data = json_decode((string) $result->getContent(), true);
         self::assertIsArray($data);
-        self::assertSame('pricing', $data['onceProps']['plans']['prop']);
+        // outer key = alias, inner 'prop' = original key (matches inertia-laravel)
+        self::assertArrayHasKey('pricing', $data['onceProps']);
+        self::assertSame('plans', $data['onceProps']['pricing']['prop']);
     }
 
     public function testBuildOncePropsMetadataIncludesExpiresAtWhenUntilModifierSet(): void

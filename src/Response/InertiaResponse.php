@@ -54,10 +54,6 @@ final class InertiaResponse
 
         $isPartial = ([] !== $only || [] !== $except) && $partialComponent === $component;
 
-        if (!\array_key_exists('errors', $props)) {
-            $props['errors'] = [];
-        }
-
         // Collect deferred prop groups before resolving.
         // Both DeferProp and deferred ScrollProp participate in deferredProps.
         $deferredGroups = [];
@@ -86,14 +82,15 @@ final class InertiaResponse
         foreach ($props as $key => $prop) {
             if ($prop instanceof OnceProp && \array_key_exists($key, $resolved)) {
                 $expiresAt = $prop->getExpiresAt();
+                $alias = $prop->getAlias();
                 $meta = [
-                    'prop' => $prop->getAlias() ?? $key,
+                    'prop' => $key,
                     'expiresAt' => null !== $expiresAt ? $expiresAt->getTimestamp() * 1000 : null,
                 ];
                 if ($prop->isFresh()) {
                     $meta['fresh'] = true;
                 }
-                $oncePropsMeta[$key] = $meta;
+                $oncePropsMeta[$alias ?? $key] = $meta;
             }
         }
 
