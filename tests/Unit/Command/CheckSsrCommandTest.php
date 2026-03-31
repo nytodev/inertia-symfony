@@ -21,7 +21,7 @@ final class CheckSsrCommandTest extends TestCase
         $command = new CheckSsrCommand($client, $this->ssrUrl);
 
         $application = new Application();
-        $application->addCommand($command);
+        $application->add($command);
 
         $tester = new CommandTester($command);
         $exitCode = $tester->execute([]);
@@ -37,7 +37,7 @@ final class CheckSsrCommandTest extends TestCase
         $command = new CheckSsrCommand($client, $this->ssrUrl);
 
         $application = new Application();
-        $application->addCommand($command);
+        $application->add($command);
 
         $tester = new CommandTester($command);
         $exitCode = $tester->execute([]);
@@ -53,7 +53,7 @@ final class CheckSsrCommandTest extends TestCase
         $command = new CheckSsrCommand($client, $this->ssrUrl);
 
         $application = new Application();
-        $application->addCommand($command);
+        $application->add($command);
 
         $tester = new CommandTester($command);
         $exitCode = $tester->execute([]);

@@ -21,7 +21,7 @@ final class StopSsrCommandTest extends TestCase
         $command = new StopSsrCommand($client, $this->ssrUrl);
 
         $application = new Application();
-        $application->addCommand($command);
+        $application->add($command);
 
         $tester = new CommandTester($command);
         $exitCode = $tester->execute([]);
@@ -36,7 +36,7 @@ final class StopSsrCommandTest extends TestCase
         $command = new StopSsrCommand($client, $this->ssrUrl);
 
         $application = new Application();
-        $application->addCommand($command);
+        $application->add($command);
 
         $tester = new CommandTester($command);
         $exitCode = $tester->execute([]);

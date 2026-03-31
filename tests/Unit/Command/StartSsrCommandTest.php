@@ -19,7 +19,7 @@ final class StartSsrCommandTest extends TestCase
         $command = new StartSsrCommand('', '/nonexistent/cwd');
 
         $application = new Application();
-        $application->addCommand($command);
+        $application->add($command);
 
         $tester = new CommandTester($command);
         $exitCode = $tester->execute([]);
@@ -45,7 +45,7 @@ final class StartSsrCommandTest extends TestCase
         $command = new StartSsrCommand($bundlePath, $tempDir, $process);
 
         $application = new Application();
-        $application->addCommand($command);
+        $application->add($command);
 
         $tester = new CommandTester($command);
         $exitCode = $tester->execute([]);
@@ -74,7 +74,7 @@ final class StartSsrCommandTest extends TestCase
         $command = new StartSsrCommand($bundlePath, $tempDir, $process);
 
         $application = new Application();
-        $application->addCommand($command);
+        $application->add($command);
 
         $tester = new CommandTester($command);
         $exitCode = $tester->execute([]);
@@ -106,7 +106,7 @@ final class StartSsrCommandTest extends TestCase
         $command = new StartSsrCommand(null, $tempDir, $process);
 
         $application = new Application();
-        $application->addCommand($command);
+        $application->add($command);
 
         $tester = new CommandTester($command);
         $exitCode = $tester->execute([]);
@@ -130,7 +130,7 @@ final class StartSsrCommandTest extends TestCase
         $command = new StartSsrCommand(null, $tempDir);
 
         $application = new Application();
-        $application->addCommand($command);
+        $application->add($command);
 
         $tester = new CommandTester($command);
         $exitCode = $tester->execute([]);
