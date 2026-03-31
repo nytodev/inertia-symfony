@@ -7,9 +7,16 @@ namespace Nytodev\InertiaBundle\Props;
 /**
  * A merge prop that carries pagination metadata for client-side scroll restoration.
  * Appears in mergeProps (or prependProps) and populates the scrollProps page object field.
+ *
+ * Supports optional deferred loading: when defer() is called the prop is excluded from
+ * the initial page object and fetched by the client in a separate XHR request (like DeferProp),
+ * while still appearing in mergeProps and deferredProps on the initial render.
  */
 final class ScrollProp
 {
+    private bool $deferred = false;
+    private string $deferGroup = 'default';
+
     public function __construct(
         private readonly \Closure $callback,
         private readonly string $pageName = 'page',
@@ -18,6 +25,24 @@ final class ScrollProp
         private readonly int|string|null $currentPage = null,
         private readonly bool $prepend = false,
     ) {
+    }
+
+    public function defer(string $group = 'default'): static
+    {
+        $this->deferred = true;
+        $this->deferGroup = $group;
+
+        return $this;
+    }
+
+    public function shouldDefer(): bool
+    {
+        return $this->deferred;
+    }
+
+    public function getGroup(): string
+    {
+        return $this->deferGroup;
     }
 
     public function resolve(): mixed

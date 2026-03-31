@@ -132,4 +132,43 @@ final class ScrollPropTest extends TestCase
         $prop = new ScrollProp(static fn () => [], nextPage: 'abc123');
         self::assertSame('abc123', $prop->getNextPage());
     }
+
+    // --- defer capability ---
+
+    public function testShouldDeferDefaultsToFalse(): void
+    {
+        $prop = new ScrollProp(static fn () => []);
+        self::assertFalse($prop->shouldDefer());
+    }
+
+    public function testDeferSetsShouldDeferToTrue(): void
+    {
+        $prop = (new ScrollProp(static fn () => []))->defer();
+        self::assertTrue($prop->shouldDefer());
+    }
+
+    public function testDeferReturnsSameInstance(): void
+    {
+        $prop = new ScrollProp(static fn () => []);
+        self::assertSame($prop, $prop->defer());
+    }
+
+    public function testGetGroupWithDefaultGroupReturnsDefault(): void
+    {
+        $prop = (new ScrollProp(static fn () => []))->defer();
+        self::assertSame('default', $prop->getGroup());
+    }
+
+    public function testGetGroupWithCustomGroupReturnsCustomGroup(): void
+    {
+        $prop = (new ScrollProp(static fn () => []))->defer('sidebar');
+        self::assertSame('sidebar', $prop->getGroup());
+    }
+
+    public function testDeferWithCustomGroupSetsShouldDeferTrue(): void
+    {
+        $prop = (new ScrollProp(static fn () => []))->defer('analytics');
+        self::assertTrue($prop->shouldDefer());
+        self::assertSame('analytics', $prop->getGroup());
+    }
 }
