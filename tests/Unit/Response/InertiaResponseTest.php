@@ -9,6 +9,7 @@ use Nytodev\InertiaBundle\Props\DeferProp;
 use Nytodev\InertiaBundle\Props\LazyProp;
 use Nytodev\InertiaBundle\Props\MergeProp;
 use Nytodev\InertiaBundle\Props\OnceProp;
+use Nytodev\InertiaBundle\Props\ScrollProp;
 use Nytodev\InertiaBundle\Response\InertiaResponse;
 use Nytodev\InertiaBundle\Twig\InertiaTwigExtension;
 use PHPUnit\Framework\TestCase;
@@ -474,10 +475,10 @@ final class InertiaResponseTest extends TestCase
     }
 
     // -------------------------------------------------------------------------
-    // X-Inertia-Reset → resetProps in page object
+    // X-Inertia-Reset → reset flag inside scrollProps metadata (matching inertia-laravel)
     // -------------------------------------------------------------------------
 
-    public function testBuildWithResetHeaderEmitsResetPropsInPageObject(): void
+    public function testBuildWithResetHeaderEmitsResetFlagInScrollProps(): void
     {
         $twig = new Environment(new ArrayLoader([]));
         $response = new InertiaResponse($twig, 'base.html.twig');
@@ -488,14 +489,15 @@ final class InertiaResponseTest extends TestCase
         $request->headers->set('X-Inertia-Partial-Component', 'Home');
         $request->headers->set('X-Inertia-Reset', 'posts');
 
-        $result = $response->build('Home', ['posts' => [1, 2, 3]], '/home', null, $request);
+        $result = $response->build('Home', ['posts' => new ScrollProp(static fn () => [1, 2, 3])], '/home', null, $request);
         $data = json_decode((string) $result->getContent(), true);
         self::assertIsArray($data);
-        self::assertArrayHasKey('resetProps', $data);
-        self::assertContains('posts', $data['resetProps']);
+        self::assertArrayNotHasKey('resetProps', $data);
+        self::assertArrayHasKey('scrollProps', $data);
+        self::assertTrue($data['scrollProps']['posts']['reset']);
     }
 
-    public function testBuildWithoutResetHeaderOmitsResetPropsFromPageObject(): void
+    public function testBuildWithoutResetHeaderEmitsFalseResetFlagInScrollProps(): void
     {
         $twig = new Environment(new ArrayLoader([]));
         $response = new InertiaResponse($twig, 'base.html.twig');
@@ -503,10 +505,12 @@ final class InertiaResponseTest extends TestCase
         $request = Request::create('/home');
         $request->headers->set('X-Inertia', 'true');
 
-        $result = $response->build('Home', ['posts' => [1, 2, 3]], '/home', null, $request);
+        $result = $response->build('Home', ['posts' => new ScrollProp(static fn () => [1, 2, 3])], '/home', null, $request);
         $data = json_decode((string) $result->getContent(), true);
         self::assertIsArray($data);
         self::assertArrayNotHasKey('resetProps', $data);
+        self::assertArrayHasKey('scrollProps', $data);
+        self::assertFalse($data['scrollProps']['posts']['reset']);
     }
 
     // -------------------------------------------------------------------------
@@ -554,6 +558,27 @@ final class InertiaResponseTest extends TestCase
         $data = json_decode((string) $result->getContent(), true);
         self::assertIsArray($data);
         self::assertArrayNotHasKey('onceProps', $data);
+    }
+
+    public function testResolvePropsExceptOnceNotAppliedDuringPartialReload(): void
+    {
+        // During a partial reload, X-Inertia-Except-Once-Props must be ignored.
+        // The client's "I already have this" signal is only relevant on full XHR visits.
+        $request = Request::create('/home');
+        $request->headers->set('X-Inertia', 'true');
+        $request->headers->set('X-Inertia-Partial-Component', 'Home');
+        $request->headers->set('X-Inertia-Partial-Data', 'plans');
+        $request->headers->set('X-Inertia-Except-Once-Props', 'plans');
+
+        $result = $this->response->build('Home', [
+            'plans' => new OnceProp(static fn () => ['basic', 'pro']),
+        ], '/home', null, $request);
+
+        $data = json_decode((string) $result->getContent(), true);
+        self::assertIsArray($data);
+        // plans is in $only AND in $exceptOnce — $exceptOnce must not win on partials
+        self::assertArrayHasKey('plans', $data['props']);
+        self::assertSame(['basic', 'pro'], $data['props']['plans']);
     }
 
     public function testBuildOncePropsMetadataUsesAliasWhenAsModifierSet(): void

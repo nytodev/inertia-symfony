@@ -18,62 +18,62 @@ final class FlashTest extends FunctionalTestCase
     }
 
     // -------------------------------------------------------------------------
-    // flash is always present in page object (even when empty)
+    // flash is absent from props when empty (matching inertia-laravel)
     // -------------------------------------------------------------------------
 
-    public function testFlashIsAlwaysPresentInPageObjectWhenNoFlashSetXhrRequest(): void
+    public function testFlashIsAbsentFromPropsWhenNoFlashSetXhrRequest(): void
     {
         $this->client->request('GET', '/test', [], [], ['HTTP_X_INERTIA' => 'true']);
         self::assertResponseIsSuccessful();
         $data = $this->decodeJsonResponse();
-        self::assertArrayHasKey('flash', $data);
-        self::assertSame([], $data['flash']);
+        self::assertArrayNotHasKey('flash', $data);
+        self::assertArrayNotHasKey('flash', $data['props']);
     }
 
-    public function testFlashIsAlwaysPresentInPageObjectWhenNoFlashSetFirstVisit(): void
+    public function testFlashIsAbsentFromPropsWhenNoFlashSetFirstVisit(): void
     {
         $this->client->request('GET', '/test');
         self::assertResponseIsSuccessful();
         $page = $this->extractPageObject();
-        self::assertArrayHasKey('flash', $page);
-        self::assertSame([], $page['flash']);
+        self::assertArrayNotHasKey('flash', $page);
+        self::assertArrayNotHasKey('flash', $page['props']);
     }
 
     // -------------------------------------------------------------------------
-    // flash data set on same request appears in page object
+    // flash data set on same request appears in props.flash
     // -------------------------------------------------------------------------
 
-    public function testFlashDataAppearsInPageObjectXhrRequest(): void
+    public function testFlashDataAppearsInPropsXhrRequest(): void
     {
         $this->client->request('GET', '/test/flash-direct', [], [], ['HTTP_X_INERTIA' => 'true']);
         self::assertResponseIsSuccessful();
         $data = $this->decodeJsonResponse();
-        self::assertSame(['status' => 'saved'], $data['flash']);
+        self::assertSame(['status' => 'saved'], $data['props']['flash']);
     }
 
-    public function testFlashDataAppearsInPageObjectFirstVisit(): void
+    public function testFlashDataAppearsInPropsFirstVisit(): void
     {
         $this->client->request('GET', '/test/flash-direct');
         self::assertResponseIsSuccessful();
         $page = $this->extractPageObject();
-        self::assertSame(['status' => 'saved'], $page['flash']);
+        self::assertSame(['status' => 'saved'], $page['props']['flash']);
     }
 
     // -------------------------------------------------------------------------
     // flash is consumed (cleared) after render
     // -------------------------------------------------------------------------
 
-    public function testFlashIsConsumedAfterRenderSecondRequestShowsEmptyFlash(): void
+    public function testFlashIsConsumedAfterRenderSecondRequestShowsNoFlash(): void
     {
         // First request: flash is set and rendered
         $this->client->request('GET', '/test/flash-direct', [], [], ['HTTP_X_INERTIA' => 'true']);
         $data = $this->decodeJsonResponse();
-        self::assertSame(['status' => 'saved'], $data['flash']);
+        self::assertSame(['status' => 'saved'], $data['props']['flash']);
 
-        // Second request to a render-only route: flash must be gone
+        // Second request to a render-only route: flash key must be absent
         $this->client->request('GET', '/test/flash-target', [], [], ['HTTP_X_INERTIA' => 'true']);
         $data = $this->decodeJsonResponse();
-        self::assertSame([], $data['flash']);
+        self::assertArrayNotHasKey('flash', $data['props']);
     }
 
     // -------------------------------------------------------------------------
@@ -91,14 +91,14 @@ final class FlashTest extends FunctionalTestCase
         self::assertResponseStatusCodeSame(303);
         self::assertSame('/test/flash-target', $this->client->getResponse()->headers->get('Location'));
 
-        // Follow redirect → GET /test/flash-target → flash must be in page object
+        // Follow redirect → GET /test/flash-target → flash must be in props
         $this->client->followRedirect();
         self::assertResponseIsSuccessful();
         $data = $this->decodeJsonResponse();
-        self::assertSame(['status' => 'saved'], $data['flash']);
+        self::assertSame(['status' => 'saved'], $data['props']['flash']);
     }
 
-    public function testFlashIsConsumedAfterRedirectRenderThirdRequestShowsEmptyFlash(): void
+    public function testFlashIsConsumedAfterRedirectRenderThirdRequestShowsNoFlash(): void
     {
         $this->client->followRedirects(false);
         $this->client->setServerParameter('HTTP_X_INERTIA', 'true');
@@ -107,15 +107,15 @@ final class FlashTest extends FunctionalTestCase
         $this->client->request('PUT', '/test/flash-redirect');
         self::assertResponseStatusCodeSame(303);
 
-        // Follow redirect → flash present
+        // Follow redirect → flash present in props
         $this->client->followRedirect();
         $data = $this->decodeJsonResponse();
-        self::assertSame(['status' => 'saved'], $data['flash']);
+        self::assertSame(['status' => 'saved'], $data['props']['flash']);
 
-        // Third request → flash consumed, must be empty
+        // Third request → flash consumed, key must be absent (setServerParameter keeps X-Inertia: true)
         $this->client->request('GET', '/test/flash-target');
         $data = $this->decodeJsonResponse();
-        self::assertSame([], $data['flash']);
+        self::assertArrayNotHasKey('flash', $data['props']);
     }
 
     // -------------------------------------------------------------------------

@@ -34,7 +34,7 @@ final class InertiaResponse
      * Build and return an HTML or JSON response based on the request type.
      *
      * @param array<string, mixed> $props
-     * @param array<string, mixed> $flash top-level flash data for this response (consumed from session)
+     * @param array<string, mixed> $flash flash data to merge into props (omitted when empty, matching inertia-laravel)
      */
     public function build(
         string $component,
@@ -95,6 +95,12 @@ final class InertiaResponse
             }
         }
 
+        // Flash data belongs inside props (matching inertia-laravel behaviour).
+        // Omit the key entirely when empty so the page object stays clean.
+        if ([] !== $flash) {
+            $resolved['flash'] = $flash;
+        }
+
         $page = $this->buildPageObject(
             $component,
             $resolved,
@@ -106,11 +112,9 @@ final class InertiaResponse
             $mergeProps,
             $prependProps,
             $deepMergeProps,
-            $isPartial ? $reset : [],
             $oncePropsMeta,
             $matchPropsOn,
             $scrollProps,
-            $flash,
         );
 
         if ($request->headers->has('X-Inertia')) {
@@ -182,10 +186,11 @@ final class InertiaResponse
                 continue;
             }
 
-            // OnceProp: skip if key is in $exceptOnce.
+            // OnceProp: skip if key is in $exceptOnce — but only on full XHR visits, not partial reloads.
+            // (Matches Laravel: resolveOnceProperties() returns early when isPartial().)
             // Also skip (without resolving) if key is in $except or not in $only during partial reload.
             if ($value instanceof OnceProp) {
-                if (\in_array($key, $exceptOnce, true)) {
+                if (!$isPartial && \in_array($key, $exceptOnce, true)) {
                     continue;
                 }
                 if ($isPartial && [] !== $except && \in_array($key, $except, true)) {
@@ -347,11 +352,9 @@ final class InertiaResponse
      * @param list<string>                                         $mergeProps
      * @param list<string>                                         $prependProps
      * @param list<string>                                         $deepMergeProps
-     * @param list<string>                                         $resetProps     keys to reset before merging
      * @param array<string, array{prop: string, expiresAt: mixed}> $onceProps      once-prop metadata
      * @param list<string>                                         $matchPropsOn   "propKey.fieldKey" entries for dedup
-     * @param array<string, array<string, mixed>>                  $scrollProps    pagination metadata keyed by prop name
-     * @param array<string, mixed>                                 $flash          top-level flash data (always present, even if empty)
+     * @param array<string, array<string, mixed>>                  $scrollProps    pagination metadata keyed by prop name (includes reset flag)
      *
      * @return array<string, mixed>
      */
@@ -366,11 +369,9 @@ final class InertiaResponse
         array $mergeProps = [],
         array $prependProps = [],
         array $deepMergeProps = [],
-        array $resetProps = [],
         array $onceProps = [],
         array $matchPropsOn = [],
         array $scrollProps = [],
-        array $flash = [],
     ): array {
         $page = [
             'component' => $component,
@@ -379,7 +380,6 @@ final class InertiaResponse
             'version' => $version,
             'clearHistory' => $clearHistory,      // TODO: Inertia v3 — omit if false
             'encryptHistory' => $encryptHistory,  // TODO: Inertia v3 — omit if false
-            'flash' => $flash,
         ];
 
         if ([] !== $deferredProps) {
@@ -396,10 +396,6 @@ final class InertiaResponse
 
         if ([] !== $deepMergeProps) {
             $page['deepMergeProps'] = $deepMergeProps;
-        }
-
-        if ([] !== $resetProps) {
-            $page['resetProps'] = $resetProps;
         }
 
         if ([] !== $onceProps) {
