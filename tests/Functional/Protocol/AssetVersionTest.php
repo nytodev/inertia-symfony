@@ -52,13 +52,16 @@ final class AssetVersionTest extends FunctionalTestCase
         self::assertResponseIsSuccessful();
     }
 
-    public function testAssetVersionWhenNoVersionHeaderSentReturns200(): void
+    public function testAssetVersionWhenNoVersionHeaderSentReturns409(): void
     {
+        // Client sends X-Inertia but omits X-Inertia-Version: server has a version
+        // configured → versions differ (null vs 'v1') → must trigger 409, same as
+        // the inertia-laravel reference (header default '' !== 'v1').
         $this->client->request('GET', '/test', [], [], [
             'HTTP_X_INERTIA' => 'true',
         ]);
 
-        self::assertResponseIsSuccessful();
+        self::assertResponseStatusCodeSame(409);
     }
 
     // -------------------------------------------------------------------------

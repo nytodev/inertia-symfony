@@ -50,6 +50,20 @@ final class InertiaListenerTest extends TestCase
         self::assertFalse($event->hasResponse());
     }
 
+    public function testOnKernelRequestWithNoVersionHeaderReturns409(): void
+    {
+        // Server has version 'server-v1'; client sends X-Inertia but omits
+        // X-Inertia-Version → null !== 'server-v1' → must trigger 409.
+        $request = Request::create('/test');
+        $request->headers->set('X-Inertia', 'true');
+        $event = new RequestEvent($this->makeKernel(), $request, HttpKernelInterface::MAIN_REQUEST);
+
+        $this->listener->onKernelRequest($event);
+
+        self::assertTrue($event->hasResponse());
+        self::assertSame(409, $event->getResponse()->getStatusCode());
+    }
+
     public function testOnKernelRequestWithMatchingVersionDoesNotReturn409(): void
     {
         $request = Request::create('/test');

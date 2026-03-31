@@ -14,6 +14,7 @@ use Symfony\Component\HttpKernel\Event\ResponseEvent;
  * Handles two Inertia protocol concerns at the kernel level:
  *
  * kernel.request (priority 20):
+ *   - FlashBag 'errors' → auto-injected as Inertia validation errors (all methods)
  *   - Asset version mismatch on GET → 409 Conflict + X-Inertia-Location header
  *   - Reflash session flash data before returning 409
  *
@@ -39,6 +40,20 @@ final class InertiaListener
             return;
         }
 
+        // Auto-inject FlashBag 'errors' as Inertia validation errors.
+        // Runs on all HTTP methods so a non-redirecting POST/PUT can also surface errors.
+        // Done before the version check so errors survive a 409 + hard reload.
+        if ($request->hasSession()) {
+            $session = $request->getSession();
+            if ($session instanceof FlashBagAwareSessionInterface) {
+                foreach ($session->getFlashBag()->get('errors') as $errors) {
+                    if (\is_array($errors)) {
+                        $this->inertia->errors($errors);
+                    }
+                }
+            }
+        }
+
         if (!$request->isMethod('GET')) {
             return;
         }
@@ -51,7 +66,7 @@ final class InertiaListener
 
         $clientVersion = $request->headers->get('X-Inertia-Version');
 
-        if (null === $clientVersion || $clientVersion === $serverVersion) {
+        if ($clientVersion === $serverVersion) {
             return;
         }
 
