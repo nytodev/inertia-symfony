@@ -180,4 +180,14 @@ final class TestController
 
         return new RedirectResponse('/test/flash-target', 302);
     }
+
+    public function location(): Response
+    {
+        return $this->inertia->location('https://example.com/payment');
+    }
+
+    public function locationInternal(): Response
+    {
+        return $this->inertia->location('/other-page');
+    }
 }

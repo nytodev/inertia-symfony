@@ -106,16 +106,25 @@ final class InertiaTest extends TestCase
         self::assertSame(['auth' => ['user' => 'Tony']], $service->getSharedProps());
     }
 
-    public function testShareOnceWithKeyValuePropClearedAfterFlush(): void
+    public function testShareOnceStoresOncePropInSharedProps(): void
     {
         $service = $this->makeService();
-        $service->shareOnce('flash', 'success');
+        $service->shareOnce('plans', 'value');
 
-        self::assertSame(['flash' => 'success'], $service->getSharedOnceProps());
+        $shared = $service->getSharedProps();
+        self::assertArrayHasKey('plans', $shared);
+        self::assertInstanceOf(OnceProp::class, $shared['plans']);
+    }
 
-        $service->flushSharedOnceProps();
+    public function testShareOnceWithClosureStoresOncePropInSharedProps(): void
+    {
+        $service = $this->makeService();
+        $service->shareOnce('plans', static fn () => ['basic', 'pro']);
 
-        self::assertSame([], $service->getSharedOnceProps());
+        $shared = $service->getSharedProps();
+        self::assertArrayHasKey('plans', $shared);
+        self::assertInstanceOf(OnceProp::class, $shared['plans']);
+        self::assertSame(['basic', 'pro'], $shared['plans']->resolve());
     }
 
     public function testVersionWhenConfiguredReturnsVersionString(): void
@@ -139,24 +148,13 @@ final class InertiaTest extends TestCase
         self::assertSame(['key1' => 'value1', 'key2' => 'value2'], $service->getSharedProps());
     }
 
-    public function testFlushSharedOncePropsClearsOnceProps(): void
-    {
-        $service = $this->makeService();
-        $service->shareOnce('a', 1);
-        $service->shareOnce('b', 2);
-
-        $service->flushSharedOnceProps();
-
-        self::assertSame([], $service->getSharedOnceProps());
-    }
-
     public function testResetImplementsResetInterface(): void
     {
         $service = $this->makeService();
         self::assertInstanceOf(ResetInterface::class, $service);
     }
 
-    public function testResetClearsBothSharedPropsAndSharedOnceProps(): void
+    public function testResetClearsSharedPropsIncludingOnceProps(): void
     {
         $service = $this->makeService();
         $service->share('auth', ['user' => 'Tony']);
@@ -165,7 +163,6 @@ final class InertiaTest extends TestCase
         $service->reset();
 
         self::assertSame([], $service->getSharedProps());
-        self::assertSame([], $service->getSharedOnceProps());
     }
 
     public function testRenderThrowsLogicExceptionWhenNoCurrentRequest(): void

@@ -8,7 +8,6 @@ use Nytodev\InertiaBundle\EventListener\InertiaListener;
 use Nytodev\InertiaBundle\Response\InertiaResponse;
 use Nytodev\InertiaBundle\Service\Inertia;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
@@ -174,76 +173,17 @@ final class InertiaListenerTest extends TestCase
         self::assertSame(302, $event->getResponse()->getStatusCode());
     }
 
-    public function testOnKernelResponseFlushesSharedOncePropsAfterInertiaJsonRender(): void
-    {
-        $this->inertia->shareOnce('flash', 'value');
-        self::assertSame(['flash' => 'value'], $this->inertia->getSharedOnceProps());
-
-        $request = Request::create('/test', 'GET');
-        // Response must carry X-Inertia header (set by InertiaResponse on JSON renders).
-        $response = new JsonResponse([], 200, ['X-Inertia' => 'true']);
-        $event = new ResponseEvent($this->makeKernel(), $request, HttpKernelInterface::MAIN_REQUEST, $response);
-
-        $this->listener->onKernelResponse($event);
-
-        self::assertSame([], $this->inertia->getSharedOnceProps());
-    }
-
-    public function testOnKernelResponseDoesNotFlushOncePropsWhenResponseHasNoXInertiaHeader(): void
-    {
-        $this->inertia->shareOnce('flash', 'value');
-
-        $request = Request::create('/test', 'GET');
-        $response = new Response('', 200);
-        $event = new ResponseEvent($this->makeKernel(), $request, HttpKernelInterface::MAIN_REQUEST, $response);
-
-        $this->listener->onKernelResponse($event);
-
-        self::assertSame(['flash' => 'value'], $this->inertia->getSharedOnceProps());
-    }
-
-    public function testOnKernelResponseDoesNotFlushOncePropsOn409(): void
-    {
-        $this->inertia->shareOnce('flash', 'value');
-
-        $request = Request::create('/test', 'GET');
-        $request->headers->set('X-Inertia', 'true');
-        // 409 response from version mismatch — no X-Inertia response header.
-        $response = new Response('', 409, ['X-Inertia-Location' => '/test']);
-        $event = new ResponseEvent($this->makeKernel(), $request, HttpKernelInterface::MAIN_REQUEST, $response);
-
-        $this->listener->onKernelResponse($event);
-
-        self::assertSame(['flash' => 'value'], $this->inertia->getSharedOnceProps());
-    }
-
-    public function testOnKernelResponseDoesNotFlushOncePropsOnRedirect(): void
-    {
-        $this->inertia->shareOnce('flash', 'value');
-
-        $request = Request::create('/test', 'PUT');
-        $request->headers->set('X-Inertia', 'true');
-        // Redirect response — no X-Inertia response header.
-        $response = new Response('', 303, ['Location' => '/other']);
-        $event = new ResponseEvent($this->makeKernel(), $request, HttpKernelInterface::MAIN_REQUEST, $response);
-
-        $this->listener->onKernelResponse($event);
-
-        self::assertSame(['flash' => 'value'], $this->inertia->getSharedOnceProps());
-    }
-
     public function testOnKernelResponseSubRequestDoesNothing(): void
     {
-        $this->inertia->shareOnce('flash', 'value');
-
-        $request = Request::create('/test', 'GET');
-        $response = new JsonResponse([], 200, ['X-Inertia' => 'true']);
+        $request = Request::create('/test', 'PUT');
+        $request->headers->set('X-Inertia', 'true');
+        $response = new Response('', 302, ['Location' => '/other']);
         $event = new ResponseEvent($this->makeKernel(), $request, HttpKernelInterface::SUB_REQUEST, $response);
 
         $this->listener->onKernelResponse($event);
 
-        // Sub-request: no flush, no status change.
-        self::assertSame(['flash' => 'value'], $this->inertia->getSharedOnceProps());
+        // Sub-request: 302 must NOT be converted to 303.
+        self::assertSame(302, $event->getResponse()->getStatusCode());
     }
 
     public function testOnKernelRequestOn409WithFlashBagAwareSessionReflashesFlashData(): void

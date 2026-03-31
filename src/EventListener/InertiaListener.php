@@ -90,12 +90,5 @@ final class InertiaListener
         ) {
             $response->setStatusCode(303);
         }
-
-        // Flush once-props only after an actual Inertia JSON render (the response carries
-        // the X-Inertia header). This avoids flushing on 409 version conflicts or redirects
-        // where no render occurred and the once-props were never consumed.
-        if ($response->headers->has('X-Inertia')) {
-            $this->inertia->flushSharedOnceProps();
-        }
     }
 }

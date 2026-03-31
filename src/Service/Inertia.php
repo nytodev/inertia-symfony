@@ -11,6 +11,7 @@ use Nytodev\InertiaBundle\Props\MergeProp;
 use Nytodev\InertiaBundle\Props\OnceProp;
 use Nytodev\InertiaBundle\Props\ScrollProp;
 use Nytodev\InertiaBundle\Response\InertiaResponse;
+use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\Service\ResetInterface;
@@ -23,9 +24,6 @@ final class Inertia implements ResetInterface
 {
     /** @var array<string, mixed> */
     private array $sharedProps = [];
-
-    /** @var array<string, mixed> */
-    private array $sharedOnceProps = [];
 
     /**
      * In-memory fallback for flash data when no session is available.
@@ -56,7 +54,7 @@ final class Inertia implements ResetInterface
         $request = $this->requestStack->getCurrentRequest()
             ?? throw new \LogicException('No current request.');
 
-        $mergedProps = array_merge($this->sharedProps, $this->sharedOnceProps, $props);
+        $mergedProps = array_merge($this->sharedProps, $props);
 
         $clearHistory = $this->clearHistory;
         $encryptHistory = $this->encryptHistory;
@@ -86,11 +84,15 @@ final class Inertia implements ResetInterface
     }
 
     /**
-     * Share a prop only on the next Inertia render, then discard it.
+     * Share a prop that is sent once and cached by the client.
+     * The value is wrapped in an OnceProp and stored in $sharedProps.
+     * The client controls re-sending via X-Inertia-Except-Once-Props.
      */
     public function shareOnce(string $key, mixed $value): void
     {
-        $this->sharedOnceProps[$key] = $value;
+        $this->sharedProps[$key] = $value instanceof OnceProp
+            ? $value
+            : new OnceProp($value instanceof \Closure ? $value : static fn () => $value);
     }
 
     /**
@@ -107,22 +109,6 @@ final class Inertia implements ResetInterface
     public function getSharedProps(): array
     {
         return $this->sharedProps;
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    public function getSharedOnceProps(): array
-    {
-        return $this->sharedOnceProps;
-    }
-
-    /**
-     * Clear all once-props (called by InertiaListener after the response is sent).
-     */
-    public function flushSharedOnceProps(): void
-    {
-        $this->sharedOnceProps = [];
     }
 
     /**
@@ -159,7 +145,6 @@ final class Inertia implements ResetInterface
     public function reset(): void
     {
         $this->sharedProps = [];
-        $this->sharedOnceProps = [];
         $this->flashData = [];
         $this->clearHistory = false;
         $this->encryptHistory = false;
@@ -231,6 +216,24 @@ final class Inertia implements ResetInterface
     public function merge(\Closure $callback, bool $prepend = false, bool $deep = false, string|array $matchOn = []): MergeProp
     {
         return new MergeProp($callback, $prepend, $deep, $matchOn);
+    }
+
+    /**
+     * Force a full browser navigation to the given URL, bypassing the SPA.
+     *
+     * For Inertia XHR requests: returns 409 Conflict + X-Inertia-Location header.
+     * For first-visit (non-XHR) requests: returns a standard 302 redirect.
+     */
+    public function location(string $url): Response
+    {
+        $request = $this->requestStack->getCurrentRequest()
+            ?? throw new \LogicException('No current request.');
+
+        if ($request->headers->has('X-Inertia')) {
+            return new Response('', 409, ['X-Inertia-Location' => $url]);
+        }
+
+        return new RedirectResponse($url, 302);
     }
 
     public function scroll(

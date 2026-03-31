@@ -72,4 +72,10 @@ return static function (RoutingConfigurator $routes): void {
     $routes->add('test_inertia_flash_redirect', '/test/flash-redirect')
         ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'flashRedirect'])
         ->methods(['PUT']);
+
+    $routes->add('test_inertia_location', '/test/location')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'location']);
+
+    $routes->add('test_inertia_location_internal', '/test/location-internal')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'locationInternal']);
 };
