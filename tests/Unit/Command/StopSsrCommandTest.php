@@ -6,7 +6,6 @@ namespace Nytodev\InertiaBundle\Tests\Unit\Command;
 
 use Nytodev\InertiaBundle\Command\StopSsrCommand;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
@@ -20,9 +19,6 @@ final class StopSsrCommandTest extends TestCase
         $client = new MockHttpClient(new MockResponse('OK', ['http_code' => 200]));
         $command = new StopSsrCommand($client, $this->ssrUrl);
 
-        $application = new Application();
-        $application->add($command);
-
         $tester = new CommandTester($command);
         $exitCode = $tester->execute([]);
 
@@ -34,9 +30,6 @@ final class StopSsrCommandTest extends TestCase
     {
         $client = new MockHttpClient(new MockResponse('', ['error' => 'Connection refused']));
         $command = new StopSsrCommand($client, $this->ssrUrl);
-
-        $application = new Application();
-        $application->add($command);
 
         $tester = new CommandTester($command);
         $exitCode = $tester->execute([]);

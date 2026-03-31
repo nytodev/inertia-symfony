@@ -7,7 +7,6 @@ namespace Nytodev\InertiaBundle\Tests\Unit\Command;
 use Nytodev\InertiaBundle\Command\StartSsrCommand;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\Process\Process;
 
@@ -17,9 +16,6 @@ final class StartSsrCommandTest extends TestCase
     {
         // Pass a non-existent bundle path and a cwd where no auto-detected paths exist.
         $command = new StartSsrCommand('', '/nonexistent/cwd');
-
-        $application = new Application();
-        $application->add($command);
 
         $tester = new CommandTester($command);
         $exitCode = $tester->execute([]);
@@ -43,9 +39,6 @@ final class StartSsrCommandTest extends TestCase
         $process->method('getIncrementalErrorOutput')->willReturn('');
 
         $command = new StartSsrCommand($bundlePath, $tempDir, $process);
-
-        $application = new Application();
-        $application->add($command);
 
         $tester = new CommandTester($command);
         $exitCode = $tester->execute([]);
@@ -72,9 +65,6 @@ final class StartSsrCommandTest extends TestCase
         $process->method('getIncrementalErrorOutput')->willReturn('some warning');
 
         $command = new StartSsrCommand($bundlePath, $tempDir, $process);
-
-        $application = new Application();
-        $application->add($command);
 
         $tester = new CommandTester($command);
         $exitCode = $tester->execute([]);
@@ -105,9 +95,6 @@ final class StartSsrCommandTest extends TestCase
         // ssrBundle = null triggers auto-detection; cwd = $tempDir so paths resolve correctly.
         $command = new StartSsrCommand(null, $tempDir, $process);
 
-        $application = new Application();
-        $application->add($command);
-
         $tester = new CommandTester($command);
         $exitCode = $tester->execute([]);
 
@@ -128,9 +115,6 @@ final class StartSsrCommandTest extends TestCase
         mkdir($tempDir, 0777, true);
 
         $command = new StartSsrCommand(null, $tempDir);
-
-        $application = new Application();
-        $application->add($command);
 
         $tester = new CommandTester($command);
         $exitCode = $tester->execute([]);
