@@ -47,24 +47,28 @@ final class InertiaBundle extends AbstractBundle
         $services->get('inertia.service')
             ->arg('$version', $config['version']);
 
-        // SSR: when enabled, replace NullSsrGateway with the real HTTP gateway.
+        // start-ssr: always available (spawns a Node process, no HTTP client needed).
+        $services->get('inertia.command.start_ssr')
+            ->arg('$ssrBundle', $config['ssr_bundle']);
+
         if ($config['ssr_enabled']) {
+            // Replace NullSsrGateway with the real HTTP gateway.
             $services->get('inertia.ssr_gateway')
                 ->class(HttpSsrGateway::class)
                 ->arg('$httpClient', service('http_client'))
                 ->arg('$ssrUrl', $config['ssr_url']);
+
+            // stop-ssr and check-ssr need symfony/http-client — only wire when SSR is enabled.
+            $services->get('inertia.command.stop_ssr')
+                ->arg('$httpClient', service('http_client'))
+                ->arg('$ssrUrl', $config['ssr_url']);
+
+            $services->get('inertia.command.check_ssr')
+                ->arg('$httpClient', service('http_client'))
+                ->arg('$ssrUrl', $config['ssr_url']);
+        } else {
+            $builder->removeDefinition('inertia.command.stop_ssr');
+            $builder->removeDefinition('inertia.command.check_ssr');
         }
-
-        // SSR management commands: always registered, wired with ssrUrl and ssrBundle.
-        $services->get('inertia.command.start_ssr')
-            ->arg('$ssrBundle', $config['ssr_bundle']);
-
-        $services->get('inertia.command.stop_ssr')
-            ->arg('$httpClient', service('http_client'))
-            ->arg('$ssrUrl', $config['ssr_url']);
-
-        $services->get('inertia.command.check_ssr')
-            ->arg('$httpClient', service('http_client'))
-            ->arg('$ssrUrl', $config['ssr_url']);
     }
 }
