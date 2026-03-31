@@ -64,6 +64,28 @@ services:
             - { name: twig.extension }
             - { name: kernel.reset, method: reset }
 
+    # -------------------------------------------------------------------------
+    # Console commands: SSR server management.
+    # Arguments are injected at compile time via InertiaBundle::loadExtension().
+    # -------------------------------------------------------------------------
+    inertia.command.start_ssr:
+        class: Nytodev\InertiaBundle\Command\StartSsrCommand
+        public: false
+        tags:
+            - { name: console.command }
+
+    inertia.command.stop_ssr:
+        class: Nytodev\InertiaBundle\Command\StopSsrCommand
+        public: false
+        tags:
+            - { name: console.command }
+
+    inertia.command.check_ssr:
+        class: Nytodev\InertiaBundle\Command\CheckSsrCommand
+        public: false
+        tags:
+            - { name: console.command }
+
     # =========================================================================
     # Public aliases for autowiring — inject the FQCN type-hint in controllers
     # =========================================================================

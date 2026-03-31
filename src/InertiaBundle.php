@@ -54,5 +54,17 @@ final class InertiaBundle extends AbstractBundle
                 ->arg('$httpClient', service('http_client'))
                 ->arg('$ssrUrl', $config['ssr_url']);
         }
+
+        // SSR management commands: always registered, wired with ssrUrl and ssrBundle.
+        $services->get('inertia.command.start_ssr')
+            ->arg('$ssrBundle', $config['ssr_bundle']);
+
+        $services->get('inertia.command.stop_ssr')
+            ->arg('$httpClient', service('http_client'))
+            ->arg('$ssrUrl', $config['ssr_url']);
+
+        $services->get('inertia.command.check_ssr')
+            ->arg('$httpClient', service('http_client'))
+            ->arg('$ssrUrl', $config['ssr_url']);
     }
 }

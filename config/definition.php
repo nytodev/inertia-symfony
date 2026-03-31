@@ -24,6 +24,10 @@ return static function (DefinitionConfigurator $definition): void {
                 ->defaultValue('http://127.0.0.1:13714')
                 ->info('URL of the SSR server (used only when ssr_enabled is true).')
             ->end()
+            ->scalarNode('ssr_bundle')
+                ->defaultNull()
+                ->info('Path to the SSR bundle JS file. If null, auto-detected from common paths (bootstrap/ssr/ssr.mjs, public/build/ssr/ssr.mjs).')
+            ->end()
         ->end()
     ;
 };
