@@ -59,11 +59,13 @@ final class InertiaResponse
         }
 
         // Collect deferred prop groups before resolving.
+        // Both DeferProp and deferred ScrollProp participate in deferredProps.
         $deferredGroups = [];
         foreach ($props as $key => $prop) {
             if ($prop instanceof DeferProp) {
-                $group = $prop->getGroup();
-                $deferredGroups[$group][] = $key;
+                $deferredGroups[$prop->getGroup()][] = $key;
+            } elseif ($prop instanceof ScrollProp && $prop->shouldDefer()) {
+                $deferredGroups[$prop->getGroup()][] = $key;
             }
         }
 
@@ -76,7 +78,7 @@ final class InertiaResponse
 
         // Collect merge arrays AFTER resolving+filtering so excluded keys are absent.
         $scrollMergeIntent = $request->headers->get('X-Inertia-Infinite-Scroll-Merge-Intent');
-        [$mergeProps, $prependProps, $deepMergeProps, $matchPropsOn] = $this->collectMergeArrays($props, $resolved, $scrollMergeIntent);
+        [$mergeProps, $prependProps, $deepMergeProps, $matchPropsOn] = $this->collectMergeArrays($props, $resolved, $scrollMergeIntent, $isPartial);
         $scrollProps = $this->collectScrollProps($props, $resolved, $reset);
 
         // Collect onceProps metadata for keys that survived into resolved props.
@@ -215,8 +217,16 @@ final class InertiaResponse
                 continue;
             }
 
-            // ScrollProp: same filtering rules as MergeProp.
+            // ScrollProp: deferred ScrollProp behaves like DeferProp (only resolved on deferred XHR).
+            // Non-deferred ScrollProp follows MergeProp filtering rules.
             if ($value instanceof ScrollProp) {
+                if ($value->shouldDefer()) {
+                    if (!$isPartial || [] === $only || !\in_array($key, $only, true)) {
+                        continue;
+                    }
+                    $resolved[$key] = $value->resolve();
+                    continue;
+                }
                 if ($isPartial && [] !== $except && \in_array($key, $except, true)) {
                     continue;
                 }
@@ -266,17 +276,26 @@ final class InertiaResponse
     }
 
     /**
-     * Collect merge/prepend/deepMerge/matchPropsOn arrays from the original props,
-     * restricted to keys that survived into the final resolved props (i.e. not filtered out).
+     * Collect merge/prepend/deepMerge/matchPropsOn arrays from the original props.
+     *
+     * MergeProp: only included when the key survived into resolved props (i.e. not filtered out).
+     *
+     * DeferProp + shouldMerge(): included on initial load regardless of resolved props, so the
+     * client knows upfront that the deferred value will be merged when the XHR arrives.
+     * On partial reloads, only included when the key was actually resolved.
+     *
+     * ScrollProp: same rule as DeferProp — on initial load always included (even when deferred);
+     * on partial reloads only when resolved.
      *
      * @param array<string, mixed> $rawProps          original props before resolution
      * @param array<string, mixed> $resolvedProps     props after resolution and filtering
      * @param string|null          $scrollMergeIntent value of X-Inertia-Infinite-Scroll-Merge-Intent header;
      *                                                when set, overrides the static $prepend flag on ScrollProp
+     * @param bool                 $isPartial         whether this is a partial reload request
      *
      * @return array{0: list<string>, 1: list<string>, 2: list<string>, 3: list<string>}
      */
-    private function collectMergeArrays(array $rawProps, array $resolvedProps, ?string $scrollMergeIntent = null): array
+    private function collectMergeArrays(array $rawProps, array $resolvedProps, ?string $scrollMergeIntent = null, bool $isPartial = false): array
     {
         $mergeProps = [];
         $prependProps = [];
@@ -284,11 +303,16 @@ final class InertiaResponse
         $matchPropsOn = [];
 
         foreach ($rawProps as $key => $prop) {
-            if (!\array_key_exists($key, $resolvedProps)) {
-                continue;
-            }
-
-            if ($prop instanceof MergeProp) {
+            // DeferProp with merge semantics: announce merge metadata on initial load so the client
+            // is ready to merge when the deferred XHR resolves. On partial reloads, only emit
+            // when the key was actually fetched (i.e. appeared in X-Inertia-Partial-Data).
+            if ($prop instanceof DeferProp) {
+                if (!$prop->shouldMerge()) {
+                    continue;
+                }
+                if ($isPartial && !\array_key_exists($key, $resolvedProps)) {
+                    continue;
+                }
                 if ($prop->isDeep()) {
                     $deepMergeProps[] = $key;
                 } elseif ($prop->isPrepend()) {
@@ -302,7 +326,33 @@ final class InertiaResponse
                 continue;
             }
 
+            // MergeProp: only include when the key survived into resolved props.
+            if ($prop instanceof MergeProp) {
+                if (!\array_key_exists($key, $resolvedProps)) {
+                    continue;
+                }
+                if ($prop->isDeep()) {
+                    $deepMergeProps[] = $key;
+                } elseif ($prop->isPrepend()) {
+                    $prependProps[] = $key;
+                } else {
+                    $mergeProps[] = $key;
+                }
+                foreach ($prop->getMatchOn() as $field) {
+                    $matchPropsOn[] = $key.'.'.$field;
+                }
+                continue;
+            }
+
+            // ScrollProp: on initial load always include (deferred or not); on partial reloads
+            // only include when the key was actually resolved.
             if ($prop instanceof ScrollProp) {
+                if ($isPartial && !\array_key_exists($key, $resolvedProps)) {
+                    continue;
+                }
+                if (!$isPartial && !\array_key_exists($key, $resolvedProps) && !$prop->shouldDefer()) {
+                    continue;
+                }
                 $isPrepend = null !== $scrollMergeIntent
                     ? ('prepend' === $scrollMergeIntent)
                     : $prop->isPrepend();
