@@ -14,10 +14,13 @@ $ARGUMENTS
 ### 1. Read the protocol spec
 Load `.claude/skills/inertia-protocol/SKILL.md` and identify which protocol behaviors are involved.
 
-### 2. Read existing code
+### 2. Check the Laravel reference implementation
+Read `/home/tony/Documents/tony/inertia-laravel` to see how the same feature is handled in the Laravel bundle. Use it as a reference for expected behavior and conventions.
+
+### 3. Read existing code
 Explore relevant files in `src/` to understand the current state.
 
-### 3. Write the plan
+### 4. Write the plan
 
 The plan must include:
 
@@ -48,6 +51,6 @@ config/definition.php  — Add new config option if needed
 - Any ambiguity in the spec?
 - Symfony version compatibility concerns?
 
-### 4. Present the plan for review
+### 5. Present the plan for review
 Do NOT start implementing. Present the plan and wait for approval.
 If the plan is approved, use `/tdd` to implement step by step.

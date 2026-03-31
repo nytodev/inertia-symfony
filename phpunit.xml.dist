@@ -21,22 +21,10 @@
         </include>
     </source>
 
-    <coverage>
-        <report>
-            <clover outputFile="coverage/clover.xml"/>
-            <html outputDirectory="coverage/html"/>
-            <text outputFile="php://stdout" showUncoveredFiles="false"/>
-        </report>
-    </coverage>
+
     <php>
         <env name="KERNEL_CLASS" value="Nytodev\InertiaBundle\Tests\Functional\app\TestKernel"/>
         <env name="APP_ENV" value="test"/>
         <env name="APP_DEBUG" value="0"/>
-
-        <!-- ###+ symfony/framework-bundle ### -->
-        <env name="APP_ENV" value="dev"/>
-        <env name="APP_SECRET" value=""/>
-        <env name="APP_SHARE_DIR" value="var/share"/>
-        <!-- ###- symfony/framework-bundle ### -->
     </php>
 </phpunit>
