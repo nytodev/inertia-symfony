@@ -335,4 +335,54 @@ final class InertiaTest extends TestCase
         self::assertFalse($data['clearHistory']);
         self::assertFalse($data['encryptHistory']);
     }
+
+    // -------------------------------------------------------------------------
+    // errors() unit tests
+    // -------------------------------------------------------------------------
+
+    public function testErrorsWithNoSessionStoresInMemory(): void
+    {
+        $request = new Request([], [], [], [], [], ['REQUEST_URI' => '/home']);
+        $request->headers->set('X-Inertia', 'true');
+        $this->requestStack->method('getCurrentRequest')->willReturn($request);
+
+        $service = $this->makeService();
+        $service->errors(['email' => 'Invalid email']);
+        $response = $service->render('Home', []);
+
+        $data = json_decode((string) $response->getContent(), true);
+        self::assertIsArray($data);
+        self::assertSame(['email' => 'Invalid email'], $data['props']['errors']);
+    }
+
+    public function testErrorsWithNamedBagStoredUnderBagName(): void
+    {
+        $request = new Request([], [], [], [], [], ['REQUEST_URI' => '/home']);
+        $request->headers->set('X-Inertia', 'true');
+        $this->requestStack->method('getCurrentRequest')->willReturn($request);
+
+        $service = $this->makeService();
+        $service->errors(['name' => 'Required'], 'login');
+        $response = $service->render('Home', []);
+
+        $data = json_decode((string) $response->getContent(), true);
+        self::assertIsArray($data);
+        self::assertSame(['login' => ['name' => 'Required']], $data['props']['errors']);
+    }
+
+    public function testResetClearsErrorsData(): void
+    {
+        $request = new Request([], [], [], [], [], ['REQUEST_URI' => '/home']);
+        $request->headers->set('X-Inertia', 'true');
+        $this->requestStack->method('getCurrentRequest')->willReturn($request);
+
+        $service = $this->makeService();
+        $service->errors(['email' => 'Invalid email']);
+        $service->reset();
+        $response = $service->render('Home', []);
+
+        $data = json_decode((string) $response->getContent(), true);
+        self::assertIsArray($data);
+        self::assertSame([], $data['props']['errors']);
+    }
 }

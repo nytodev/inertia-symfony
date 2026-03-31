@@ -32,6 +32,14 @@ final class Inertia implements ResetInterface
      */
     private array $flashData = [];
 
+    /**
+     * In-memory fallback for errors data when no session is available.
+     * Keyed by bag name (e.g. 'default', 'login').
+     *
+     * @var array<string, array<string, mixed>>
+     */
+    private array $errorsData = [];
+
     private bool $clearHistory = false;
 
     private bool $encryptHistory = false;
@@ -62,6 +70,14 @@ final class Inertia implements ResetInterface
         $this->encryptHistory = false;
 
         $flash = $this->consumeFlash($request);
+
+        // Inject errors only when the caller has not already provided an 'errors' key.
+        if (!\array_key_exists('errors', $mergedProps)) {
+            $mergedProps['errors'] = $this->consumeErrors($request);
+        } else {
+            // Discard pending errors so they do not leak to the next request.
+            $this->consumeErrors($request);
+        }
 
         return $this->inertiaResponse->build(
             $component,
@@ -146,6 +162,7 @@ final class Inertia implements ResetInterface
     {
         $this->sharedProps = [];
         $this->flashData = [];
+        $this->errorsData = [];
         $this->clearHistory = false;
         $this->encryptHistory = false;
     }
@@ -170,6 +187,81 @@ final class Inertia implements ResetInterface
         }
 
         return $flash;
+    }
+
+    /**
+     * Store validation errors to be auto-injected into the next Inertia render.
+     *
+     * When a session is available, the errors are persisted under '_inertia_errors'
+     * so they survive redirects (PRG pattern: PUT → 303 → GET).
+     * When no session is available (stateless routes), errors are kept in memory
+     * and are available only within the same request lifecycle.
+     *
+     * Multiple calls merge errors within each bag rather than overwriting.
+     *
+     * @param array<string, mixed> $errors
+     */
+    public function errors(array $errors, string $bag = 'default'): void
+    {
+        $request = $this->requestStack->getCurrentRequest();
+
+        if (null !== $request && $request->hasSession()) {
+            $session = $request->getSession();
+            /** @var array<string, array<string, mixed>> $existing */
+            $existing = $session->get('_inertia_errors', []);
+            $existing[$bag] = array_merge($existing[$bag] ?? [], $errors);
+            $session->set('_inertia_errors', $existing);
+
+            return;
+        }
+
+        $this->errorsData[$bag] = array_merge($this->errorsData[$bag] ?? [], $errors);
+    }
+
+    /**
+     * Read and clear all pending errors (session + in-memory fallback).
+     * Applies X-Inertia-Error-Bag header logic (identical to Laravel resolveValidationErrors()):
+     * - Only 'default' bag + header present → wrap under header value
+     * - Only 'default' bag + no header → return flat array
+     * - Multiple bags → return keyed by bag name.
+     *
+     * Called exactly once per render() invocation.
+     *
+     * @return array<string, mixed>
+     */
+    private function consumeErrors(\Symfony\Component\HttpFoundation\Request $request): array
+    {
+        /** @var array<string, array<string, mixed>> $bags */
+        $bags = $this->errorsData;
+        $this->errorsData = [];
+
+        if ($request->hasSession()) {
+            $session = $request->getSession();
+            /** @var array<string, array<string, mixed>> $sessionErrors */
+            $sessionErrors = $session->get('_inertia_errors', []);
+            $session->remove('_inertia_errors');
+            foreach ($sessionErrors as $bagName => $bagErrors) {
+                $bags[$bagName] = array_merge($bags[$bagName] ?? [], $bagErrors);
+            }
+        }
+
+        if ([] === $bags) {
+            return [];
+        }
+
+        $bagNames = array_keys($bags);
+        $isOnlyDefault = ['default'] === $bagNames;
+
+        if ($isOnlyDefault) {
+            $errorBagHeader = $request->headers->get('X-Inertia-Error-Bag');
+            if (null !== $errorBagHeader && '' !== $errorBagHeader) {
+                return [$errorBagHeader => $bags['default']];
+            }
+
+            return $bags['default'];
+        }
+
+        return $bags;
     }
 
     /**

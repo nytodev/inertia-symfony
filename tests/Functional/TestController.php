@@ -228,4 +228,37 @@ final class TestController
             'posts' => (new ScrollProp(static fn () => [['id' => 1]], nextPage: 2))->defer('sidebar'),
         ]);
     }
+
+    public function validationErrors(): Response
+    {
+        $this->inertia->errors(['email' => 'Invalid email']);
+
+        return $this->inertia->render('TestComponent', ['foo' => 'bar']);
+    }
+
+    public function validationErrorsTarget(): Response
+    {
+        return $this->inertia->render('TestComponent', ['foo' => 'bar']);
+    }
+
+    public function validationErrorsRedirect(): Response
+    {
+        $this->inertia->errors(['email' => 'Invalid email']);
+
+        return new RedirectResponse('/test/validation-errors-target', 302);
+    }
+
+    public function validationErrorsNamedBag(): Response
+    {
+        $this->inertia->errors(['name' => 'Required'], 'login');
+
+        return $this->inertia->render('TestComponent', ['foo' => 'bar']);
+    }
+
+    public function validationErrorsOverride(): Response
+    {
+        $this->inertia->errors(['auto' => 'injected']);
+
+        return $this->inertia->render('TestComponent', ['errors' => ['explicit' => true]]);
+    }
 }

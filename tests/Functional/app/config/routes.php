@@ -93,4 +93,20 @@ return static function (RoutingConfigurator $routes): void {
 
     $routes->add('test_inertia_scroll_defer_group', '/test/scroll-defer-group')
         ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'scrollDeferGroup']);
+
+    $routes->add('test_validation_errors', '/test/validation-errors')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'validationErrors']);
+
+    $routes->add('test_validation_errors_target', '/test/validation-errors-target')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'validationErrorsTarget']);
+
+    $routes->add('test_validation_errors_redirect', '/test/validation-errors-redirect')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'validationErrorsRedirect'])
+        ->methods(['PUT']);
+
+    $routes->add('test_validation_errors_named_bag', '/test/validation-errors-named-bag')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'validationErrorsNamedBag']);
+
+    $routes->add('test_validation_errors_override', '/test/validation-errors-override')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'validationErrorsOverride']);
 };
