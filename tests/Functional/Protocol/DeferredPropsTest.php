@@ -76,4 +76,82 @@ final class DeferredPropsTest extends FunctionalTestCase
         self::assertIsArray($data);
         self::assertArrayNotHasKey('deferredProps', $data);
     }
+
+    // --- DeferProp mergeable ---
+
+    public function testDeferMergeOnInitialLoadKeyInBothDeferredPropsAndMergeProps(): void
+    {
+        // DeferProp+merge(): initial load → key in deferredProps AND mergeProps simultaneously.
+        // The client needs merge metadata upfront so it knows to merge (not replace) on deferred XHR.
+        $this->client->request('GET', '/test/defer-merge', [], [], ['HTTP_X_INERTIA' => 'true']);
+        self::assertResponseIsSuccessful();
+        $data = json_decode((string) $this->client->getResponse()->getContent(), true);
+        self::assertIsArray($data);
+
+        self::assertArrayHasKey('deferredProps', $data);
+        self::assertContains('deferred', $data['deferredProps']['default'] ?? []);
+
+        self::assertArrayHasKey('mergeProps', $data);
+        self::assertContains('deferred', $data['mergeProps']);
+    }
+
+    public function testDeferMergeOnInitialLoadValueAbsentFromProps(): void
+    {
+        // DeferProp value must not be resolved on initial load.
+        $this->client->request('GET', '/test/defer-merge', [], [], ['HTTP_X_INERTIA' => 'true']);
+        $data = json_decode((string) $this->client->getResponse()->getContent(), true);
+        self::assertIsArray($data);
+        self::assertArrayNotHasKey('deferred', $data['props'] ?? []);
+    }
+
+    public function testDeferMergeOnDeferredXhrValueResolvedAndKeyInMergeProps(): void
+    {
+        // When the client fetches the deferred prop, the value is resolved AND mergeProps is present.
+        $this->client->request('GET', '/test/defer-merge', [], [], [
+            'HTTP_X_INERTIA' => 'true',
+            'HTTP_X_INERTIA_PARTIAL_DATA' => 'deferred',
+            'HTTP_X_INERTIA_PARTIAL_COMPONENT' => 'TestComponent',
+        ]);
+        self::assertResponseIsSuccessful();
+        $data = json_decode((string) $this->client->getResponse()->getContent(), true);
+        self::assertIsArray($data);
+
+        self::assertArrayHasKey('deferred', $data['props'] ?? []);
+        self::assertSame('deferred-value', $data['props']['deferred']);
+        self::assertArrayHasKey('mergeProps', $data);
+        self::assertContains('deferred', $data['mergeProps']);
+    }
+
+    public function testDeferDeepMergeOnInitialLoadKeyInDeepMergePropsAndDeferredProps(): void
+    {
+        $this->client->request('GET', '/test/defer-deep-merge', [], [], ['HTTP_X_INERTIA' => 'true']);
+        $data = json_decode((string) $this->client->getResponse()->getContent(), true);
+        self::assertIsArray($data);
+
+        self::assertArrayHasKey('deferredProps', $data);
+        self::assertArrayHasKey('deepMergeProps', $data);
+        self::assertContains('deferred', $data['deepMergeProps']);
+        self::assertArrayNotHasKey('mergeProps', $data);
+    }
+
+    public function testDeferMergeMatchOnInitialLoadKeyInMatchPropsOn(): void
+    {
+        $this->client->request('GET', '/test/defer-merge-match-on', [], [], ['HTTP_X_INERTIA' => 'true']);
+        $data = json_decode((string) $this->client->getResponse()->getContent(), true);
+        self::assertIsArray($data);
+
+        self::assertArrayHasKey('mergeProps', $data);
+        self::assertContains('deferred', $data['mergeProps']);
+        self::assertArrayHasKey('matchPropsOn', $data);
+        self::assertContains('deferred.id', $data['matchPropsOn']);
+    }
+
+    public function testDeferWithoutMergeNotInMergePropsOnInitialLoad(): void
+    {
+        // Regression guard: plain DeferProp (no merge) must NOT appear in mergeProps.
+        $this->client->request('GET', '/test/defer', [], [], ['HTTP_X_INERTIA' => 'true']);
+        $data = json_decode((string) $this->client->getResponse()->getContent(), true);
+        self::assertIsArray($data);
+        self::assertArrayNotHasKey('mergeProps', $data);
+    }
 }

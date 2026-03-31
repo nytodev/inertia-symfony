@@ -250,4 +250,61 @@ final class ScrollPropsTest extends FunctionalTestCase
         $this->assertSame(1, $scrollMeta['previousPage']);
         $this->assertSame(2, $scrollMeta['currentPage']);
     }
+
+    // --- ScrollProp deferrable ---
+
+    public function testScrollDeferOnInitialLoadKeyInDeferredPropsAndMergePropsNotScrollProps(): void
+    {
+        // Deferred ScrollProp on initial load: key in deferredProps and mergeProps,
+        // but NOT in scrollProps (metadata only appears when value is resolved).
+        $client = self::createClient();
+        $client->request('GET', '/test/scroll-defer', [], [], ['HTTP_X-Inertia' => 'true']);
+
+        $this->assertResponseIsSuccessful();
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+
+        $this->assertArrayHasKey('deferredProps', $data);
+        $this->assertContains('posts', $data['deferredProps']['default'] ?? []);
+
+        $this->assertArrayHasKey('mergeProps', $data);
+        $this->assertContains('posts', $data['mergeProps']);
+
+        $this->assertArrayNotHasKey('scrollProps', $data);
+        $this->assertArrayNotHasKey('posts', $data['props'] ?? []);
+    }
+
+    public function testScrollDeferOnDeferredXhrValueResolvedScrollPropsAndMergePropsPresent(): void
+    {
+        // When the client fetches the deferred scroll prop: value resolved, scrollProps and mergeProps present.
+        $client = self::createClient();
+        $client->request('GET', '/test/scroll-defer', [], [], [
+            'HTTP_X-Inertia' => 'true',
+            'HTTP_X-Inertia-Partial-Data' => 'posts',
+            'HTTP_X-Inertia-Partial-Component' => 'TestComponent',
+        ]);
+
+        $this->assertResponseIsSuccessful();
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+
+        $this->assertArrayHasKey('posts', $data['props'] ?? []);
+        $this->assertArrayHasKey('scrollProps', $data);
+        $this->assertArrayHasKey('posts', $data['scrollProps']);
+        $this->assertSame(2, $data['scrollProps']['posts']['nextPage']);
+        $this->assertArrayHasKey('mergeProps', $data);
+        $this->assertContains('posts', $data['mergeProps']);
+    }
+
+    public function testScrollDeferCustomGroupAppearsInCorrectDeferGroup(): void
+    {
+        $client = self::createClient();
+        $client->request('GET', '/test/scroll-defer-group', [], [], ['HTTP_X-Inertia' => 'true']);
+
+        $this->assertResponseIsSuccessful();
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+
+        $this->assertArrayHasKey('deferredProps', $data);
+        $this->assertArrayHasKey('sidebar', $data['deferredProps']);
+        $this->assertContains('posts', $data['deferredProps']['sidebar']);
+        $this->assertArrayNotHasKey('default', $data['deferredProps']);
+    }
 }

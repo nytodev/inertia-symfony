@@ -78,4 +78,19 @@ return static function (RoutingConfigurator $routes): void {
 
     $routes->add('test_inertia_location_internal', '/test/location-internal')
         ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'locationInternal']);
+
+    $routes->add('test_inertia_defer_merge', '/test/defer-merge')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'deferMerge']);
+
+    $routes->add('test_inertia_defer_deep_merge', '/test/defer-deep-merge')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'deferDeepMerge']);
+
+    $routes->add('test_inertia_defer_merge_match_on', '/test/defer-merge-match-on')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'deferMergeMatchOn']);
+
+    $routes->add('test_inertia_scroll_defer', '/test/scroll-defer')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'scrollDefer']);
+
+    $routes->add('test_inertia_scroll_defer_group', '/test/scroll-defer-group')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'scrollDeferGroup']);
 };

@@ -190,4 +190,42 @@ final class TestController
     {
         return $this->inertia->location('/other-page');
     }
+
+    public function deferMerge(): Response
+    {
+        return $this->inertia->render('TestComponent', [
+            'eager' => 'eager-value',
+            'deferred' => (new DeferProp(static fn () => 'deferred-value'))->merge(),
+        ]);
+    }
+
+    public function deferDeepMerge(): Response
+    {
+        return $this->inertia->render('TestComponent', [
+            'eager' => 'eager-value',
+            'deferred' => (new DeferProp(static fn () => [['id' => 1]]))->deepMerge(),
+        ]);
+    }
+
+    public function deferMergeMatchOn(): Response
+    {
+        return $this->inertia->render('TestComponent', [
+            'eager' => 'eager-value',
+            'deferred' => (new DeferProp(static fn () => [['id' => 1]]))->merge()->matchOn('id'),
+        ]);
+    }
+
+    public function scrollDefer(): Response
+    {
+        return $this->inertia->render('TestComponent', [
+            'posts' => (new ScrollProp(static fn () => [['id' => 1]], nextPage: 2))->defer(),
+        ]);
+    }
+
+    public function scrollDeferGroup(): Response
+    {
+        return $this->inertia->render('TestComponent', [
+            'posts' => (new ScrollProp(static fn () => [['id' => 1]], nextPage: 2))->defer('sidebar'),
+        ]);
+    }
 }
