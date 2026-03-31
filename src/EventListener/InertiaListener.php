@@ -19,7 +19,6 @@ use Symfony\Component\HttpKernel\Event\ResponseEvent;
  *
  * kernel.response (priority 0):
  *   - 302 after PUT/PATCH/DELETE → 303 See Other
- *   - Flush shared once-props after a successful Inertia render
  */
 final class InertiaListener
 {
