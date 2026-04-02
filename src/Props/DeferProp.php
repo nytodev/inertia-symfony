@@ -19,6 +19,10 @@ final class DeferProp
     private bool $prepend = false;
     /** @var string[] */
     private array $matchOn = [];
+    /** @var string[] */
+    private array $appendsAtPaths = [];
+    /** @var string[] */
+    private array $prependsAtPaths = [];
 
     public function __construct(
         private readonly \Closure $callback,
@@ -90,5 +94,55 @@ final class DeferProp
     public function getMatchOn(): array
     {
         return $this->matchOn;
+    }
+
+    /**
+     * Mark this prop for path-specific appending instead of root-level merging.
+     *
+     * @param string|string[] $paths one or more sub-paths (e.g. 'data' → 'posts.data')
+     */
+    public function appendAt(string|array $paths): static
+    {
+        $this->appendsAtPaths = \is_string($paths) ? [$paths] : array_values($paths);
+        $this->merge = true;
+
+        return $this;
+    }
+
+    /**
+     * Mark this prop for path-specific prepending instead of root-level prepending.
+     *
+     * @param string|string[] $paths one or more sub-paths
+     */
+    public function prependAt(string|array $paths): static
+    {
+        $this->prependsAtPaths = \is_string($paths) ? [$paths] : array_values($paths);
+        $this->merge = true;
+
+        return $this;
+    }
+
+    /**
+     * @return string[]
+     */
+    public function getAppendsAtPaths(): array
+    {
+        return $this->appendsAtPaths;
+    }
+
+    /**
+     * @return string[]
+     */
+    public function getPrependsAtPaths(): array
+    {
+        return $this->prependsAtPaths;
+    }
+
+    /**
+     * Returns true when no path-specific arrays are set — merge targets the root prop key.
+     */
+    public function mergesAtRoot(): bool
+    {
+        return [] === $this->appendsAtPaths && [] === $this->prependsAtPaths;
     }
 }
