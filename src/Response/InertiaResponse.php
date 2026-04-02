@@ -85,7 +85,7 @@ final class InertiaResponse
                 $alias = $prop->getAlias();
                 $meta = [
                     'prop' => $key,
-                    'expiresAt' => null !== $expiresAt ? $expiresAt->getTimestamp() * 1000 : null,
+                    'expiresAt' => null !== $expiresAt ? $expiresAt->getTimestamp() : null,
                 ];
                 if ($prop->isFresh()) {
                     $meta['fresh'] = true;
@@ -312,10 +312,19 @@ final class InertiaResponse
                 }
                 if ($prop->isDeep()) {
                     $deepMergeProps[] = $key;
-                } elseif ($prop->isPrepend()) {
-                    $prependProps[] = $key;
+                } elseif ($prop->mergesAtRoot()) {
+                    if ($prop->isPrepend()) {
+                        $prependProps[] = $key;
+                    } else {
+                        $mergeProps[] = $key;
+                    }
                 } else {
-                    $mergeProps[] = $key;
+                    foreach ($prop->getAppendsAtPaths() as $path) {
+                        $mergeProps[] = $key.'.'.$path;
+                    }
+                    foreach ($prop->getPrependsAtPaths() as $path) {
+                        $prependProps[] = $key.'.'.$path;
+                    }
                 }
                 foreach ($prop->getMatchOn() as $field) {
                     $matchPropsOn[] = $key.'.'.$field;
@@ -330,10 +339,19 @@ final class InertiaResponse
                 }
                 if ($prop->isDeep()) {
                     $deepMergeProps[] = $key;
-                } elseif ($prop->isPrepend()) {
-                    $prependProps[] = $key;
+                } elseif ($prop->mergesAtRoot()) {
+                    if ($prop->isPrepend()) {
+                        $prependProps[] = $key;
+                    } else {
+                        $mergeProps[] = $key;
+                    }
                 } else {
-                    $mergeProps[] = $key;
+                    foreach ($prop->getAppendsAtPaths() as $path) {
+                        $mergeProps[] = $key.'.'.$path;
+                    }
+                    foreach ($prop->getPrependsAtPaths() as $path) {
+                        $prependProps[] = $key.'.'.$path;
+                    }
                 }
                 foreach ($prop->getMatchOn() as $field) {
                     $matchPropsOn[] = $key.'.'.$field;

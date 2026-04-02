@@ -40,9 +40,40 @@ final class InertiaListener
             return;
         }
 
+        // Version mismatch check must run before consuming errors from the FlashBag,
+        // so the 'errors' key is still present when we reflash everything for the 409.
+        if ($request->isMethod('GET')) {
+            $serverVersion = $this->inertia->version();
+
+            if (null !== $serverVersion) {
+                $clientVersion = $request->headers->get('X-Inertia-Version');
+
+                if (null !== $clientVersion && $clientVersion !== $serverVersion) {
+                    // Reflash all session flash data (including 'errors') so it survives
+                    // the hard reload that follows a 409 Conflict.
+                    if ($request->hasSession()) {
+                        $session = $request->getSession();
+                        if ($session instanceof FlashBagAwareSessionInterface) {
+                            $flashes = $session->getFlashBag()->all();
+                            foreach ($flashes as $type => $messages) {
+                                foreach ($messages as $message) {
+                                    $session->getFlashBag()->add($type, $message);
+                                }
+                            }
+                        }
+                    }
+
+                    $event->setResponse(new Response('', 409, [
+                        'X-Inertia-Location' => $request->getUri(),
+                    ]));
+
+                    return;
+                }
+            }
+        }
+
         // Auto-inject FlashBag 'errors' as Inertia validation errors.
         // Runs on all HTTP methods so a non-redirecting POST/PUT can also surface errors.
-        // Done before the version check so errors survive a 409 + hard reload.
         if ($request->hasSession()) {
             $session = $request->getSession();
             if ($session instanceof FlashBagAwareSessionInterface) {
@@ -53,39 +84,6 @@ final class InertiaListener
                 }
             }
         }
-
-        if (!$request->isMethod('GET')) {
-            return;
-        }
-
-        $serverVersion = $this->inertia->version();
-
-        if (null === $serverVersion) {
-            return;
-        }
-
-        $clientVersion = $request->headers->get('X-Inertia-Version');
-
-        if ($clientVersion === $serverVersion) {
-            return;
-        }
-
-        // Reflash session flash data so it is not lost across the 409 redirect.
-        if ($request->hasSession()) {
-            $session = $request->getSession();
-            if ($session instanceof FlashBagAwareSessionInterface) {
-                $flashes = $session->getFlashBag()->peekAll();
-                foreach ($flashes as $type => $messages) {
-                    foreach ($messages as $message) {
-                        $session->getFlashBag()->add($type, $message);
-                    }
-                }
-            }
-        }
-
-        $event->setResponse(new Response('', 409, [
-            'X-Inertia-Location' => $request->getUri(),
-        ]));
     }
 
     public function onKernelResponse(ResponseEvent $event): void
