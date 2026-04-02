@@ -261,4 +261,34 @@ final class TestController
 
         return $this->inertia->render('TestComponent', ['errors' => ['explicit' => true]]);
     }
+
+    public function mergeAtPath(): Response
+    {
+        return $this->inertia->render('TestComponent', [
+            'posts' => new MergeProp(static fn () => ['data' => [1, 2], 'meta' => ['total' => 2]], appendsAtPaths: 'data'),
+        ]);
+    }
+
+    public function prependAtPath(): Response
+    {
+        return $this->inertia->render('TestComponent', [
+            'posts' => new MergeProp(static fn () => ['items' => [1, 2]], prependsAtPaths: 'items'),
+        ]);
+    }
+
+    public function mergePathMixed(): Response
+    {
+        return $this->inertia->render('TestComponent', [
+            'posts' => new MergeProp(static fn () => [1, 2]),
+            'comments' => new MergeProp(static fn () => ['data' => [1, 2]], appendsAtPaths: 'data'),
+        ]);
+    }
+
+    public function deferAtPath(): Response
+    {
+        return $this->inertia->render('TestComponent', [
+            'eager' => 'eager-value',
+            'deferred' => (new DeferProp(static fn () => ['data' => [1, 2]]))->appendAt('data'),
+        ]);
+    }
 }

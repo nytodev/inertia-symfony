@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Nytodev\InertiaBundle\Tests\Unit\Service;
 
+use Nytodev\InertiaBundle\Props\AlwaysProp;
 use Nytodev\InertiaBundle\Props\DeferProp;
 use Nytodev\InertiaBundle\Props\LazyProp;
 use Nytodev\InertiaBundle\Props\MergeProp;
 use Nytodev\InertiaBundle\Props\OnceProp;
+use Nytodev\InertiaBundle\Props\ScrollProp;
 use Nytodev\InertiaBundle\Response\InertiaResponse;
 use Nytodev\InertiaBundle\Service\Inertia;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -384,5 +386,63 @@ final class InertiaTest extends TestCase
         $data = json_decode((string) $response->getContent(), true);
         self::assertIsArray($data);
         self::assertSame([], $data['props']['errors']);
+    }
+
+    public function testAlwaysWithClosureReturnsAlwaysPropInstance(): void
+    {
+        $service = $this->makeService();
+        $callback = static fn () => 'always-value';
+
+        $result = $service->always($callback);
+
+        self::assertInstanceOf(AlwaysProp::class, $result);
+        self::assertSame('always-value', $result->resolve());
+    }
+
+    public function testScrollWithClosureReturnsScrollPropInstance(): void
+    {
+        $service = $this->makeService();
+        $callback = static fn () => [['id' => 1]];
+
+        $result = $service->scroll($callback, 'page', 2, 1, 1);
+
+        self::assertInstanceOf(ScrollProp::class, $result);
+        self::assertSame(2, $result->getNextPage());
+    }
+
+    public function testFlashWithNoSessionStoresInMemoryAndAppearsInProps(): void
+    {
+        $request = new Request([], [], [], [], [], ['REQUEST_URI' => '/home']);
+        $request->headers->set('X-Inertia', 'true');
+        $this->requestStack->method('getCurrentRequest')->willReturn($request);
+
+        $service = $this->makeService();
+        $service->flash('status', 'saved');
+        $response = $service->render('Home', []);
+
+        $data = json_decode((string) $response->getContent(), true);
+        self::assertIsArray($data);
+        self::assertSame('saved', $data['props']['flash']['status'] ?? null);
+    }
+
+    public function testShareOnceWithExistingOncePropPassesThroughUnchanged(): void
+    {
+        $service = $this->makeService();
+        $onceProp = new OnceProp(static fn () => 'value');
+
+        $service->shareOnce('key', $onceProp);
+
+        $shared = $service->getSharedProps();
+        self::assertSame($onceProp, $shared['key']);
+    }
+
+    public function testLocationThrowsLogicExceptionWhenNoCurrentRequest(): void
+    {
+        $this->requestStack->method('getCurrentRequest')->willReturn(null);
+
+        $service = $this->makeService();
+
+        $this->expectException(\LogicException::class);
+        $service->location('/some-url');
     }
 }

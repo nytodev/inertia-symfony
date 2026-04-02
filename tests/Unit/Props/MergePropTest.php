@@ -68,4 +68,54 @@ final class MergePropTest extends TestCase
         $prop = new MergeProp(static fn () => [], matchOn: ['id', 'uuid']);
         self::assertSame(['id', 'uuid'], $prop->getMatchOn());
     }
+
+    // --- path-specific merge ---
+
+    public function testGetAppendsAtPathsByDefaultReturnsEmptyArray(): void
+    {
+        $prop = new MergeProp(static fn () => []);
+        self::assertSame([], $prop->getAppendsAtPaths());
+    }
+
+    public function testGetAppendsAtPathsWithStringReturnsNormalizedArray(): void
+    {
+        $prop = new MergeProp(static fn () => [], appendsAtPaths: 'data');
+        self::assertSame(['data'], $prop->getAppendsAtPaths());
+    }
+
+    public function testGetAppendsAtPathsWithArrayReturnsArray(): void
+    {
+        $prop = new MergeProp(static fn () => [], appendsAtPaths: ['data', 'items']);
+        self::assertSame(['data', 'items'], $prop->getAppendsAtPaths());
+    }
+
+    public function testGetPrependsAtPathsByDefaultReturnsEmptyArray(): void
+    {
+        $prop = new MergeProp(static fn () => []);
+        self::assertSame([], $prop->getPrependsAtPaths());
+    }
+
+    public function testGetPrependsAtPathsWithStringReturnsNormalizedArray(): void
+    {
+        $prop = new MergeProp(static fn () => [], prependsAtPaths: 'items');
+        self::assertSame(['items'], $prop->getPrependsAtPaths());
+    }
+
+    public function testMergesAtRootIsTrueWhenNoPaths(): void
+    {
+        $prop = new MergeProp(static fn () => []);
+        self::assertTrue($prop->mergesAtRoot());
+    }
+
+    public function testMergesAtRootIsFalseWhenAppendsAtPathsSet(): void
+    {
+        $prop = new MergeProp(static fn () => [], appendsAtPaths: 'data');
+        self::assertFalse($prop->mergesAtRoot());
+    }
+
+    public function testMergesAtRootIsFalseWhenPrependsAtPathsSet(): void
+    {
+        $prop = new MergeProp(static fn () => [], prependsAtPaths: 'items');
+        self::assertFalse($prop->mergesAtRoot());
+    }
 }

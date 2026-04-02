@@ -109,4 +109,16 @@ return static function (RoutingConfigurator $routes): void {
 
     $routes->add('test_validation_errors_override', '/test/validation-errors-override')
         ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'validationErrorsOverride']);
+
+    $routes->add('test_merge_at_path', '/test/merge-at-path')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'mergeAtPath']);
+
+    $routes->add('test_prepend_at_path', '/test/prepend-at-path')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'prependAtPath']);
+
+    $routes->add('test_merge_path_mixed', '/test/merge-path-mixed')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'mergePathMixed']);
+
+    $routes->add('test_defer_at_path', '/test/defer-at-path')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'deferAtPath']);
 };

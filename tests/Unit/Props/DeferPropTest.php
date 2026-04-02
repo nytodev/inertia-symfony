@@ -109,4 +109,72 @@ final class DeferPropTest extends TestCase
         self::assertTrue($prop->shouldMerge());
         self::assertSame(['id'], $prop->getMatchOn());
     }
+
+    // --- path-specific merge ---
+
+    public function testGetAppendsAtPathsByDefaultReturnsEmptyArray(): void
+    {
+        $prop = new DeferProp(static fn () => []);
+        self::assertSame([], $prop->getAppendsAtPaths());
+    }
+
+    public function testAppendAtWithStringStoresSinglePath(): void
+    {
+        $prop = (new DeferProp(static fn () => []))->appendAt('data');
+        self::assertSame(['data'], $prop->getAppendsAtPaths());
+    }
+
+    public function testAppendAtWithArrayStoresPaths(): void
+    {
+        $prop = (new DeferProp(static fn () => []))->appendAt(['data', 'items']);
+        self::assertSame(['data', 'items'], $prop->getAppendsAtPaths());
+    }
+
+    public function testAppendAtEnablesMerge(): void
+    {
+        $prop = (new DeferProp(static fn () => []))->appendAt('data');
+        self::assertTrue($prop->shouldMerge());
+    }
+
+    public function testAppendAtReturnsSameInstance(): void
+    {
+        $prop = new DeferProp(static fn () => []);
+        self::assertSame($prop, $prop->appendAt('data'));
+    }
+
+    public function testGetPrependsAtPathsByDefaultReturnsEmptyArray(): void
+    {
+        $prop = new DeferProp(static fn () => []);
+        self::assertSame([], $prop->getPrependsAtPaths());
+    }
+
+    public function testPrependAtWithStringStoresSinglePath(): void
+    {
+        $prop = (new DeferProp(static fn () => []))->prependAt('items');
+        self::assertSame(['items'], $prop->getPrependsAtPaths());
+    }
+
+    public function testPrependAtEnablesMerge(): void
+    {
+        $prop = (new DeferProp(static fn () => []))->prependAt('items');
+        self::assertTrue($prop->shouldMerge());
+    }
+
+    public function testMergesAtRootIsTrueWhenNoPaths(): void
+    {
+        $prop = (new DeferProp(static fn () => []))->merge();
+        self::assertTrue($prop->mergesAtRoot());
+    }
+
+    public function testMergesAtRootIsFalseWhenAppendsAtPathsSet(): void
+    {
+        $prop = (new DeferProp(static fn () => []))->appendAt('data');
+        self::assertFalse($prop->mergesAtRoot());
+    }
+
+    public function testMergesAtRootIsFalseWhenPrependsAtPathsSet(): void
+    {
+        $prop = (new DeferProp(static fn () => []))->prependAt('items');
+        self::assertFalse($prop->mergesAtRoot());
+    }
 }
