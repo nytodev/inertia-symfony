@@ -36,12 +36,13 @@ final class InertiaTest extends TestCase
         $this->inertiaResponse = new InertiaResponse($twig, 'base.html.twig');
     }
 
-    private function makeService(?string $version = null): Inertia
+    private function makeService(?string $version = null, bool $defaultEncryptHistory = false): Inertia
     {
         return new Inertia(
             $this->requestStack,
             $this->inertiaResponse,
             $version,
+            $defaultEncryptHistory,
         );
     }
 
@@ -336,6 +337,35 @@ final class InertiaTest extends TestCase
         self::assertIsArray($data);
         self::assertFalse($data['clearHistory']);
         self::assertFalse($data['encryptHistory']);
+    }
+
+    public function testDefaultEncryptHistoryTrueProducesEncryptedResponseWithoutExplicitCall(): void
+    {
+        $request = new Request([], [], [], [], [], ['REQUEST_URI' => '/home']);
+        $request->headers->set('X-Inertia', 'true');
+        $this->requestStack->method('getCurrentRequest')->willReturn($request);
+
+        $service = $this->makeService(defaultEncryptHistory: true);
+
+        $response = $service->render('Home', []);
+        $data = json_decode((string) $response->getContent(), true);
+        self::assertIsArray($data);
+        self::assertTrue($data['encryptHistory']);
+    }
+
+    public function testResetRestoresDefaultEncryptHistoryFromConfig(): void
+    {
+        $request = new Request([], [], [], [], [], ['REQUEST_URI' => '/home']);
+        $request->headers->set('X-Inertia', 'true');
+        $this->requestStack->method('getCurrentRequest')->willReturn($request);
+
+        $service = $this->makeService(defaultEncryptHistory: true);
+        $service->reset();
+
+        $response = $service->render('Home', []);
+        $data = json_decode((string) $response->getContent(), true);
+        self::assertIsArray($data);
+        self::assertTrue($data['encryptHistory']);
     }
 
     // -------------------------------------------------------------------------

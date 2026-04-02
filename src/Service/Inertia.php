@@ -48,7 +48,9 @@ final class Inertia implements ResetInterface
         private readonly RequestStack $requestStack,
         private readonly InertiaResponse $inertiaResponse,
         private readonly ?string $version,
+        private readonly bool $defaultEncryptHistory = false,
     ) {
+        $this->encryptHistory = $defaultEncryptHistory;
     }
 
     /**
@@ -164,7 +166,7 @@ final class Inertia implements ResetInterface
         $this->flashData = [];
         $this->errorsData = [];
         $this->clearHistory = false;
-        $this->encryptHistory = false;
+        $this->encryptHistory = $this->defaultEncryptHistory;
     }
 
     /**

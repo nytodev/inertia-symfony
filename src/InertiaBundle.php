@@ -45,7 +45,8 @@ final class InertiaBundle extends AbstractBundle
             ->arg('$rootView', $config['root_view']);
 
         $services->get('inertia.service')
-            ->arg('$version', $config['version']);
+            ->arg('$version', $config['version'])
+            ->arg('$defaultEncryptHistory', $config['encrypt_history']);
 
         // start-ssr: always available (spawns a Node process, no HTTP client needed).
         $services->get('inertia.command.start_ssr')
