@@ -80,25 +80,30 @@ $pageObject = [
 
 ```php
 // In kernel.request listener:
+// IMPORTANT: version check must run BEFORE consuming any FlashBag keys (e.g. 'errors'),
+// so that all flash data including 'errors' is still present when reflashing for the 409.
 if (
     $request->isMethod('GET')
     && $isInertia
     && null !== $serverVersion
     && $clientVersion !== $serverVersion
 ) {
-    // Reflash flash data before 409
+    // Reflash ALL flash data (consume + re-add) so nothing is lost across the hard reload.
+    // Use all() (not peekAll()) to consume first, then re-add — peekAll() would cause duplication.
     $session = $request->getSession();
     $flashBag = $session->getFlashBag();
-    foreach ($flashBag->peekAll() as $type => $messages) {
+    $flashes = $flashBag->all();
+    foreach ($flashes as $type => $messages) {
         foreach ($messages as $message) {
             $flashBag->add($type, $message);
         }
     }
 
     return new Response('', 409, [
-        'X-Inertia-Location' => $request->getUri(),
+        'X-Inertia-Location' => $request->getUri(), // absolute URL — browser navigates here
     ]);
 }
+// Only consume 'errors' flash AFTER the 409 path has been handled.
 ```
 
 ## 302 → 303 Redirect Conversion

@@ -39,6 +39,22 @@ vendor/bin/phpunit --coverage-text | grep "Lines:" | head -5
 ```
 Minimum: 95%
 
+## Known acceptable exceptions (do NOT flag these as violations)
+
+- `dump()` and `dd()` in `src/Testing/AssertableInertiaPage.php` — intentional testing DSL methods,
+  same as Laravel's `Debugging` trait. Acceptable in `src/Testing/`.
+- `Assert::assertTrue(true)` in `assertPropMissing()` — intentional, prevents PHPUnit "risky test"
+  (no assertions) warning on the "path not found = key is missing" early-return branch.
+- `static` return type on `final` class factory methods — equivalent to `self`, PHPStan does not flag it.
+- `X-Inertia-Location` header value is the **absolute** URL (`$request->getUri()`) — this is correct per
+  protocol and matches Laravel's `$request->fullUrl()`. It is NOT a page object `url` field (which must be relative).
+
+## Critical protocol invariant to check
+
+In `InertiaListener::onKernelRequest()`, the **version mismatch 409 check must run BEFORE any
+`FlashBag::get()` call**. `get()` consumes flash entries; if 'errors' is consumed before the
+reflash block, it will be silently lost on the 409 hard-reload cycle.
+
 ## Report Format
 Summarize findings as:
 - ✅ Protocol compliance: X/Y checks passed

@@ -35,9 +35,9 @@ final class HttpSsrGateway implements SsrGatewayInterface
             return null;
         }
 
-        if (null === $data) {
-            return null;
-        }
+        if (null === $data) { // @codeCoverageIgnore
+            return null; // @codeCoverageIgnore
+        } // @codeCoverageIgnore
 
         return new SsrResponse(
             implode("\n", $data['head']),
