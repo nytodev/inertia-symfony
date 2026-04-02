@@ -610,7 +610,7 @@ final class InertiaResponseTest extends TestCase
         $data = json_decode((string) $result->getContent(), true);
         self::assertIsArray($data);
         self::assertIsInt($data['onceProps']['plans']['expiresAt']);
-        self::assertSame((new \DateTimeImmutable('2030-06-01T12:00:00+00:00'))->getTimestamp() * 1000, $data['onceProps']['plans']['expiresAt']);
+        self::assertSame((new \DateTimeImmutable('2030-06-01T12:00:00+00:00'))->getTimestamp(), $data['onceProps']['plans']['expiresAt']);
     }
 
     public function testBuildOncePropsMetadataSetsFreshWhenFreshModifierSet(): void

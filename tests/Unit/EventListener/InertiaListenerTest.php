@@ -50,18 +50,17 @@ final class InertiaListenerTest extends TestCase
         self::assertFalse($event->hasResponse());
     }
 
-    public function testOnKernelRequestWithNoVersionHeaderReturns409(): void
+    public function testOnKernelRequestWithNoVersionHeaderDoesNotReturn409(): void
     {
         // Server has version 'server-v1'; client sends X-Inertia but omits
-        // X-Inertia-Version → null !== 'server-v1' → must trigger 409.
+        // X-Inertia-Version → client has no version to compare → no conflict.
         $request = Request::create('/test');
         $request->headers->set('X-Inertia', 'true');
         $event = new RequestEvent($this->makeKernel(), $request, HttpKernelInterface::MAIN_REQUEST);
 
         $this->listener->onKernelRequest($event);
 
-        self::assertTrue($event->hasResponse());
-        self::assertSame(409, $event->getResponse()->getStatusCode());
+        self::assertFalse($event->hasResponse());
     }
 
     public function testOnKernelRequestWithMatchingVersionDoesNotReturn409(): void
@@ -200,6 +199,29 @@ final class InertiaListenerTest extends TestCase
         self::assertSame(302, $event->getResponse()->getStatusCode());
     }
 
+    public function testOnKernelRequestOn409WithErrorsFlashPreservesErrorsForHardReload(): void
+    {
+        // Regression: errors flash was consumed before the reflash block,
+        // so it was silently lost after the 409 hard-reload cycle.
+        $session = new Session(new MockArraySessionStorage());
+        $session->getFlashBag()->add('errors', ['name' => 'required']);
+        $session->getFlashBag()->add('notice', 'Keep me too');
+
+        $request = Request::create('http://example.com/page');
+        $request->headers->set('X-Inertia', 'true');
+        $request->headers->set('X-Inertia-Version', 'old-version');
+        $request->setSession($session);
+
+        $event = new RequestEvent($this->makeKernel(), $request, HttpKernelInterface::MAIN_REQUEST);
+        $this->listener->onKernelRequest($event);
+
+        self::assertNotNull($event->getResponse());
+        self::assertSame(409, $event->getResponse()->getStatusCode());
+        $remaining = $session->getFlashBag()->peekAll();
+        self::assertArrayHasKey('errors', $remaining, 'errors flash must survive the 409 for the subsequent hard reload');
+        self::assertArrayHasKey('notice', $remaining);
+    }
+
     public function testOnKernelRequestOn409WithFlashBagAwareSessionReflashesFlashData(): void
     {
         $session = new Session(new MockArraySessionStorage());
@@ -223,6 +245,30 @@ final class InertiaListenerTest extends TestCase
         self::assertContains('Keep me too', $remaining['error']);
     }
 
+    public function testOnKernelRequestOnVersionMismatchFlashMessagesNotDuplicated(): void
+    {
+        $session = new Session(new MockArraySessionStorage());
+        $session->getFlashBag()->add('notice', 'Keep me');
+        $session->getFlashBag()->add('notice', 'Keep me also');
+        $session->getFlashBag()->add('error', 'Keep me too');
+
+        $request = Request::create('http://example.com/page');
+        $request->headers->set('X-Inertia', 'true');
+        $request->headers->set('X-Inertia-Version', 'old-version');
+        $request->setSession($session);
+
+        $event = new RequestEvent($this->makeKernel(), $request, HttpKernelInterface::MAIN_REQUEST);
+        $this->listener->onKernelRequest($event);
+
+        $response = $event->getResponse();
+        self::assertNotNull($response);
+        self::assertSame(409, $response->getStatusCode());
+
+        $remaining = $session->getFlashBag()->peekAll();
+        self::assertCount(2, $remaining['notice'], 'notice flash must not be duplicated');
+        self::assertCount(1, $remaining['error'], 'error flash must not be duplicated');
+    }
+
     public function testOnKernelRequestOn409WithNonFlashBagAwareSessionReturns409WithoutError(): void
     {
         $session = $this->createMock(SessionInterface::class);
@@ -237,5 +283,37 @@ final class InertiaListenerTest extends TestCase
 
         self::assertNotNull($event->getResponse());
         self::assertSame(409, $event->getResponse()->getStatusCode());
+    }
+
+    public function testOnKernelRequestAutoInjectsFlashBagErrorsWhenVersionMatches(): void
+    {
+        // Build a listener with NO version so the version check never triggers a 409.
+        $requestStack = $this->createMock(RequestStack::class);
+        $twig = new Environment(new ArrayLoader([]));
+        $inertiaResponse = new InertiaResponse($twig, 'base.html.twig');
+        $inertia = new Inertia($requestStack, $inertiaResponse, null);
+        $listener = new InertiaListener($inertia);
+
+        // Request with X-Inertia header and a FlashBag containing 'errors' as an array.
+        $request = Request::create('/test');
+        $request->headers->set('X-Inertia', 'true');
+        $session = new Session(new MockArraySessionStorage());
+        $session->getFlashBag()->add('errors', ['email' => 'Invalid']);
+        $request->setSession($session);
+
+        $event = new RequestEvent($this->makeKernel(), $request, HttpKernelInterface::MAIN_REQUEST);
+        $listener->onKernelRequest($event);
+
+        // No 409 should have been set — version is null so no mismatch.
+        self::assertFalse($event->hasResponse());
+
+        // Verify errors were injected: render with a fresh request and check the page object.
+        $renderRequest = Request::create('/test');
+        $renderRequest->headers->set('X-Inertia', 'true');
+        $requestStack->method('getCurrentRequest')->willReturn($renderRequest);
+        $response = $inertia->render('Home', []);
+        $data = json_decode((string) $response->getContent(), true);
+        self::assertIsArray($data);
+        self::assertSame(['email' => 'Invalid'], $data['props']['errors']);
     }
 }
