@@ -17,6 +17,7 @@ final class DeferProp
     private bool $merge = false;
     private bool $deep = false;
     private bool $prepend = false;
+    private bool $once = false;
     /** @var string[] */
     private array $matchOn = [];
     /** @var string[] */
@@ -144,5 +145,21 @@ final class DeferProp
     public function mergesAtRoot(): bool
     {
         return [] === $this->appendsAtPaths && [] === $this->prependsAtPaths;
+    }
+
+    /**
+     * Mark this deferred prop so the client caches the resolved value after the first deferred XHR.
+     * The key will appear in both deferredProps and onceProps in the page object.
+     */
+    public function once(): static
+    {
+        $this->once = true;
+
+        return $this;
+    }
+
+    public function isOnce(): bool
+    {
+        return $this->once;
     }
 }
