@@ -177,4 +177,31 @@ final class DeferPropTest extends TestCase
         $prop = (new DeferProp(static fn () => []))->prependAt('items');
         self::assertFalse($prop->mergesAtRoot());
     }
+
+    // --- once flag ---
+
+    public function testIsOnceDefaultsToFalse(): void
+    {
+        $prop = new DeferProp(static fn () => []);
+        self::assertFalse($prop->isOnce());
+    }
+
+    public function testOnceSetsIsOnceToTrue(): void
+    {
+        $prop = (new DeferProp(static fn () => []))->once();
+        self::assertTrue($prop->isOnce());
+    }
+
+    public function testOnceReturnsSameInstance(): void
+    {
+        $prop = new DeferProp(static fn () => []);
+        self::assertSame($prop, $prop->once());
+    }
+
+    public function testFluentChainingOnceWithMerge(): void
+    {
+        $prop = (new DeferProp(static fn () => []))->once()->merge();
+        self::assertTrue($prop->isOnce());
+        self::assertTrue($prop->shouldMerge());
+    }
 }

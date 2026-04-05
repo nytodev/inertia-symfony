@@ -545,8 +545,10 @@ final class InertiaResponseTest extends TestCase
         self::assertArrayNotHasKey('onceProps', $data);
     }
 
-    public function testBuildOncePropsMetadataOmittedWhenFilteredByExceptOnce(): void
+    public function testBuildOncePropsMetadataAlwaysPresentEvenWhenSkippedByExceptOnce(): void
     {
+        // When X-Inertia-Except-Once-Props skips a prop, the value must be absent from props
+        // but the metadata must still be present in onceProps so the client can reinject from cache.
         $request = Request::create('/home');
         $request->headers->set('X-Inertia', 'true');
         $request->headers->set('X-Inertia-Except-Once-Props', 'plans');
@@ -557,7 +559,12 @@ final class InertiaResponseTest extends TestCase
 
         $data = json_decode((string) $result->getContent(), true);
         self::assertIsArray($data);
-        self::assertArrayNotHasKey('onceProps', $data);
+        // Metadata must be present so the client knows this is a once-prop and can reinject from cache.
+        self::assertArrayHasKey('onceProps', $data);
+        self::assertArrayHasKey('plans', $data['onceProps']);
+        self::assertSame('plans', $data['onceProps']['plans']['prop']);
+        // Value must be absent — the client uses its cached copy.
+        self::assertArrayNotHasKey('plans', $data['props']);
     }
 
     public function testResolvePropsExceptOnceNotAppliedDuringPartialReload(): void

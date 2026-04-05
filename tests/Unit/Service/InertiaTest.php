@@ -475,4 +475,29 @@ final class InertiaTest extends TestCase
         $this->expectException(\LogicException::class);
         $service->location('/some-url');
     }
+
+    public function testOptionalWithClosureReturnsLazyPropInstance(): void
+    {
+        $service = $this->makeService();
+        $result = $service->optional(static fn () => 'optional-value');
+        self::assertInstanceOf(LazyProp::class, $result);
+        self::assertSame('optional-value', $result->resolve());
+    }
+
+    public function testDeepMergeWithClosureReturnsMergePropWithDeepTrue(): void
+    {
+        $service = $this->makeService();
+        $result = $service->deepMerge(static fn () => ['a' => [1]]);
+        self::assertInstanceOf(MergeProp::class, $result);
+        self::assertTrue($result->isDeep());
+        self::assertFalse($result->isPrepend());
+        self::assertSame(['a' => [1]], $result->resolve());
+    }
+
+    public function testDeepMergeWithMatchOnPassedThrough(): void
+    {
+        $service = $this->makeService();
+        $result = $service->deepMerge(static fn () => [], matchOn: 'id');
+        self::assertSame(['id'], $result->getMatchOn());
+    }
 }

@@ -26,4 +26,24 @@ final class LazyPropTest extends TestCase
         $prop = new LazyProp(static fn () => 'Tony');
         self::assertSame('Tony', $prop->resolve());
     }
+
+    // --- optional()->once() chaining ---
+
+    public function testIsOnceDefaultsToFalse(): void
+    {
+        $prop = new LazyProp(static fn () => []);
+        self::assertFalse($prop->isOnce());
+    }
+
+    public function testOnceSetsIsOnceToTrue(): void
+    {
+        $prop = (new LazyProp(static fn () => []))->once();
+        self::assertTrue($prop->isOnce());
+    }
+
+    public function testOnceReturnsSameInstance(): void
+    {
+        $prop = new LazyProp(static fn () => []);
+        self::assertSame($prop, $prop->once());
+    }
 }
