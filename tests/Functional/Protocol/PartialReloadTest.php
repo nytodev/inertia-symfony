@@ -210,6 +210,57 @@ final class PartialReloadTest extends FunctionalTestCase
     }
 
     // -------------------------------------------------------------------------
+    // optional()->once() — lazy + once caching combined
+    // -------------------------------------------------------------------------
+
+    public function testOptionalOnceAbsentFromFullRenderPropsButPresentInOnceProps(): void
+    {
+        $this->client->request('GET', '/test/optional-once', [], [], ['HTTP_X_INERTIA' => 'true']);
+        self::assertResponseIsSuccessful();
+        $data = json_decode((string) $this->client->getResponse()->getContent(), true);
+        self::assertIsArray($data);
+
+        // Absent from props (lazy — never resolved on full render)
+        self::assertArrayNotHasKey('permissions', $data['props'] ?? []);
+
+        // But present in onceProps so the client knows to cache after first partial resolve
+        self::assertArrayHasKey('onceProps', $data);
+        self::assertArrayHasKey('permissions', $data['onceProps']);
+        self::assertSame('permissions', $data['onceProps']['permissions']['prop']);
+        self::assertNull($data['onceProps']['permissions']['expiresAt']);
+    }
+
+    public function testOptionalOnceResolvedWhenExplicitlyRequested(): void
+    {
+        $this->client->request('GET', '/test/optional-once', [], [], [
+            'HTTP_X_INERTIA' => 'true',
+            'HTTP_X_INERTIA_PARTIAL_DATA' => 'permissions',
+            'HTTP_X_INERTIA_PARTIAL_COMPONENT' => 'TestComponent',
+        ]);
+        self::assertResponseIsSuccessful();
+        $data = json_decode((string) $this->client->getResponse()->getContent(), true);
+        self::assertIsArray($data);
+        self::assertArrayHasKey('permissions', $data['props'] ?? []);
+        self::assertSame(['read', 'write'], $data['props']['permissions']);
+    }
+
+    public function testOptionalOnceSkippedWhenClientSendsExceptOnceProps(): void
+    {
+        // Client has cached the permissions — sends X-Inertia-Except-Once-Props.
+        // Server must NOT re-resolve even if the key is in X-Inertia-Partial-Data.
+        $this->client->request('GET', '/test/optional-once', [], [], [
+            'HTTP_X_INERTIA' => 'true',
+            'HTTP_X_INERTIA_PARTIAL_DATA' => 'permissions',
+            'HTTP_X_INERTIA_PARTIAL_COMPONENT' => 'TestComponent',
+            'HTTP_X_INERTIA_EXCEPT_ONCE_PROPS' => 'permissions',
+        ]);
+        self::assertResponseIsSuccessful();
+        $data = json_decode((string) $this->client->getResponse()->getContent(), true);
+        self::assertIsArray($data);
+        self::assertArrayNotHasKey('permissions', $data['props'] ?? []);
+    }
+
+    // -------------------------------------------------------------------------
     // BUG 3 — MergeProp keys must not appear in mergeProps after $except filtering
     // -------------------------------------------------------------------------
 

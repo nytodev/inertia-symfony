@@ -291,4 +291,20 @@ final class TestController
             'deferred' => (new DeferProp(static fn () => ['data' => [1, 2]]))->appendAt('data'),
         ]);
     }
+
+    public function deferOnce(): Response
+    {
+        return $this->inertia->render('TestComponent', [
+            'eager' => 'eager-value',
+            'deferred' => (new DeferProp(static fn () => 'deferred-once-value'))->once(),
+        ]);
+    }
+
+    public function optionalOnce(): Response
+    {
+        return $this->inertia->render('TestComponent', [
+            'eager' => 'eager-value',
+            'permissions' => $this->inertia->optional(static fn () => ['read', 'write'])->once(),
+        ]);
+    }
 }

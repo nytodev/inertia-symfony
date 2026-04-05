@@ -121,4 +121,10 @@ return static function (RoutingConfigurator $routes): void {
 
     $routes->add('test_defer_at_path', '/test/defer-at-path')
         ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'deferAtPath']);
+
+    $routes->add('test_defer_once', '/test/defer-once')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'deferOnce']);
+
+    $routes->add('test_optional_once', '/test/optional-once')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'optionalOnce']);
 };
