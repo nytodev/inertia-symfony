@@ -22,58 +22,95 @@ $onlyProps    = $request->headers->get('X-Inertia-Partial-Data');       // CSV: 
 $exceptProps  = $request->headers->get('X-Inertia-Partial-Except');     // CSV: exclude list
 $resetProps   = $request->headers->get('X-Inertia-Reset');              // CSV: reset before merge
 $onceProps    = $request->headers->get('X-Inertia-Except-Once-Props');  // CSV: already-loaded once keys
+$scrollIntent = $request->headers->get('X-Inertia-Infinite-Scroll-Merge-Intent'); // 'append'|'prepend'
 
-// Other standard headers sent by the client (no server action required):
+// Other headers sent by client (no server action required unless noted):
 // X-Requested-With: XMLHttpRequest
-// Accept: text/html, application/xhtml+xml
-// Purpose: prefetch               (for prefetch requests)
-// Cache-Control: no-cache         (for reload requests)
-// X-Inertia-Error-Bag: {bag}      (validation error bag name)
-// X-Inertia-Infinite-Scroll-Merge-Intent: append|prepend
-// Precognition: true              (Precognition validation, out of scope)
+// Purpose: prefetch               (prefetch request — server may optimize, but not required)
+// Cache-Control: no-cache         (reload requests)
+// X-Inertia-Error-Bag: {bag}      (validation error bag name override)
+// Precognition: true              (Precognition validation — out of scope for this bundle)
 ```
 
 ## Response Types
 
-### HTML (first visit)
+### HTML (first visit — no X-Inertia header)
 
 ```php
 // v2: data-page attribute on the root div
 $json = json_encode($pageObject, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT);
 $html = '<div id="app" data-page=\'' . $json . '\'></div>';
+// Headers: Vary: X-Inertia
 
 // NOTE: v3 uses a different approach:
 // <script type="application/json" data-page="app">{...}</script><div id="app"></div>
 // We are implementing v2 here.
 ```
 
-### JSON (XHR visit)
+### JSON (XHR visit — X-Inertia: true header present)
 
 ```php
 $response = new JsonResponse($pageObject);
 $response->headers->set('X-Inertia', 'true');
 $response->headers->set('Vary', 'X-Inertia');
+$response->headers->set('Content-Type', 'application/json');
 ```
 
-## Page Object (v2)
+## Page Object (v2) — Canonical Structure
 
+```php
 $pageObject = [
-    // Always present in v2:
+    // ALWAYS present in v2:
     'component'      => 'User/Edit',          // string
-    'props'          => ['errors' => [], ...], // always has 'errors' key
+    'props'          => ['errors' => [], ...], // always has 'errors' key (default [])
     'url'            => '/user/123',           // RELATIVE path + query (no scheme/host)
     'version'        => '6b16b94d7c51',        // string|null
     'clearHistory'   => false,                 // always present in v2, even if false
     'encryptHistory' => false,                 // always present in v2, even if false
-    // Conditional (omit if empty):
+    // TODO: Inertia v3 — clearHistory/encryptHistory omitted when false
+
+    // CONDITIONAL (omit key entirely when empty):
     'deferredProps'  => ['default' => ['comments'], 'sidebar' => ['related']],
-    'mergeProps'     => ['posts'],
+    'mergeProps'     => ['posts'],             // or ['posts.data'] for sub-path
     'prependProps'   => ['notifications'],
     'deepMergeProps' => ['conversations'],
     'matchPropsOn'   => ['posts.id', 'notifications.id'],
     'onceProps'      => ['plans' => ['prop' => 'plans', 'expiresAt' => null]],
-    'scrollProps'    => ['posts' => ['pageName' => 'page', 'nextPage' => 2]],
+    'scrollProps'    => ['posts' => ['pageName' => 'page', 'nextPage' => 2,
+                                     'previousPage' => null, 'currentPage' => 1]],
 ];
+```
+
+### Official page object examples (from inertiajs.com/docs/v2/core-concepts/the-protocol):
+
+**Basic:**
+```json
+{ "component": "User/Edit", "props": { "errors": {}, "user": { "name": "Jonathan" } },
+  "url": "/user/123", "version": "6b16b94d7c51cbe5b1fa42aac98241d5",
+  "clearHistory": false, "encryptHistory": false }
+```
+
+**With deferred props:**
+```json
+{ "deferredProps": { "default": ["comments", "analytics"], "sidebar": ["relatedPosts"] } }
+```
+
+**With merge props:**
+```json
+{ "mergeProps": ["posts"], "prependProps": ["notifications"],
+  "deepMergeProps": ["conversations"],
+  "matchPropsOn": ["posts.id", "notifications.id", "conversations.data.id"] }
+```
+
+**With scroll props:**
+```json
+{ "mergeProps": ["posts.data"],
+  "scrollProps": { "posts": { "pageName": "page", "previousPage": null, "nextPage": 2, "currentPage": 1 } } }
+```
+
+**With once props:**
+```json
+{ "onceProps": { "plans": { "prop": "plans", "expiresAt": null } } }
 ```
 
 ## Asset Versioning (409)
@@ -89,10 +126,9 @@ if (
     && $clientVersion !== $serverVersion
 ) {
     // Reflash ALL flash data (consume + re-add) so nothing is lost across the hard reload.
-    // Use all() (not peekAll()) to consume first, then re-add — peekAll() would cause duplication.
     $session = $request->getSession();
     $flashBag = $session->getFlashBag();
-    $flashes = $flashBag->all();
+    $flashes = $flashBag->all();  // all() consumes; peekAll() would cause duplication
     foreach ($flashes as $type => $messages) {
         foreach ($messages as $message) {
             $flashBag->add($type, $message);
@@ -108,85 +144,63 @@ if (
 
 ## 302 → 303 Redirect Conversion
 
-Only on PUT, PATCH, DELETE — **not** POST. Official spec: "When redirecting after a PUT, PATCH, or DELETE request, you must use a 303 response code."
+Only on PUT, PATCH, DELETE — **not** POST. Spec: "When redirecting after a PUT, PATCH, or DELETE request, you must use a 303 response code."
 
 ```php
 // In kernel.response listener:
-$method = $request->getMethod();
-$status = $response->getStatusCode();
-
-if (302 === $status && \in_array($method, ['PUT', 'PATCH', 'DELETE'], true)) {
+if (302 === $response->getStatusCode()
+    && \in_array($request->getMethod(), ['PUT', 'PATCH', 'DELETE'], true)) {
     $response->setStatusCode(303);
 }
 ```
 
-## Partial Reload Props Filtering
+## Partial Reload Filtering Rules
 
-```php
-private function resolveProps(array $allProps, Request $request): array
-{
-    if (!$request->headers->has('X-Inertia-Partial-Component')) {
-        // Full render: resolve non-deferred, non-once (if already loaded) props
-        return $this->resolvePropValues($allProps, excludeDeferred: true);
-    }
+```
+isPartial = (X-Inertia-Partial-Data OR X-Inertia-Partial-Except) AND component matches
 
-    $only   = $this->parseHeaderCsv($request->headers->get('X-Inertia-Partial-Data', ''));
-    $except = $this->parseHeaderCsv($request->headers->get('X-Inertia-Partial-Except', ''));
+On full render (not partial):
+  - errors: always resolved
+  - LazyProp / optional(): SKIP
+  - DeferProp: SKIP (goes to deferredProps metadata)
+  - OnceProp: resolve UNLESS key in X-Inertia-Except-Once-Props
+  - AlwaysProp: always resolve
+  - MergeProp, ScrollProp, Closure, plain value: resolve
 
-    $filtered = [];
-    foreach ($allProps as $key => $value) {
-        // errors is ALWAYS included
-        if ('errors' === $key) {
-            $filtered[$key] = $value;
-            continue;
-        }
-
-        if ($except !== []) {
-            // Except mode: include everything not in the except list
-            if (!in_array($key, $except, true)) {
-                $filtered[$key] = $value;
-            }
-        } elseif ($only !== []) {
-            // Only mode: include only explicitly requested props
-            if (in_array($key, $only, true)) {
-                $filtered[$key] = $value;
-            }
-        } else {
-            $filtered[$key] = $value;
-        }
-    }
-
-    return $this->resolvePropValues($filtered, excludeDeferred: false);
-}
-
-private function parseHeaderCsv(string $header): array
-{
-    if ('' === $header) {
-        return [];
-    }
-    return array_filter(array_map('trim', explode(',', $header)));
-}
+On partial reload:
+  - errors: always included (ignores $only/$except)
+  - AlwaysProp: always included (ignores $only/$except)
+  - $except wins over $only when both present
+  - LazyProp: only if key explicitly in $only
+  - DeferProp: only if key explicitly in $only (deferred fetch)
+  - OnceProp: X-Inertia-Except-Once-Props is IGNORED on partials (only full XHR visits)
+  - OnceProp: follows normal $only/$except filtering
+  - MergeProp, ScrollProp: follows $only/$except filtering
 ```
 
-## Props Types Summary
-
-| Type | Class | Standard visit | Partial reload | Page object key |
-|------|-------|---------------|----------------|-----------------|
-| Direct value | `mixed` | ✅ Always | ✅ Optionally | `props` |
-| Closure | `Closure` | ✅ Always | ✅ Optionally | `props` |
-| LazyProp (`optional()`) | `LazyProp` | ❌ Never | ✅ Only if in `$only` list | `props` |
-| AlwaysProp (`always()`) | *(not yet impl.)* | ✅ Always | ✅ Always | `props` |
-| DeferProp (`defer()`) | `DeferProp` | ❌ Never | ✅ Separate XHR per group | `deferredProps` metadata |
-| OnceProp (`once()`) | `OnceProp` | ✅ First time | ❌ Skip if in `X-Inertia-Except-Once-Props` | `onceProps` metadata |
-| MergeProp (`merge()`) | `MergeProp` | ✅ Yes | ✅ Yes | `props` + `mergeProps`/`prependProps`/`deepMergeProps` |
-
-**OnceProp features:** `.as('key')` — share across pages with different prop names; `.until($date)` — expiry; `.fresh()` — force re-resolve
-
-## HTTP Status Codes Summary
+## HTTP Status Codes
 
 | Code | When |
 |------|------|
-| 200 | Normal response (HTML or JSON) |
-| 302 | Redirect (converted to 303 after non-GET Inertia requests) |
-| 303 | Redirect after PUT/PATCH/DELETE (prevents duplicate form submission) |
-| 409 | Asset version mismatch (GET only) or external redirect |
+| 200  | Normal response (HTML or JSON) |
+| 302  | Redirect (GET requests) |
+| 303  | Redirect after PUT/PATCH/DELETE |
+| 409  | Asset version mismatch (GET only) OR `Inertia::location()` external redirect |
+
+## Props Types Summary
+
+| Type | PHP API | Standard visit | Partial reload | Page object key |
+|------|---------|----------------|----------------|-----------------|
+| Direct value | `mixed` | ✅ Always | ✅ Optionally | `props` |
+| Closure | `fn() => ...` | ✅ Always | ✅ Optionally | `props` |
+| LazyProp | `optional()` *(our bundle: `lazy()`)* | ❌ Never | ✅ Only if in `$only` | `props` |
+| AlwaysProp | `always()` | ✅ Always | ✅ Always | `props` |
+| DeferProp | `defer($cb, $group)` | ❌ Never | ✅ Separate XHR | `deferredProps` |
+| OnceProp | `once()` | ✅ First time | ❌ Skip if in `X-Inertia-Except-Once-Props` | `props` + `onceProps` |
+| MergeProp | `merge()` / `deepMerge()` *(our bundle: `merge(deep:true)`)* | ✅ Yes | ✅ Yes | `props` + `mergeProps`/`prependProps`/`deepMergeProps` |
+| ScrollProp | `scroll()` | ✅ Yes | ✅ Yes | `props` + `mergeProps` + `scrollProps` |
+
+**Note on our bundle vs official v2 API:**
+- Official: `Inertia::optional()` → our bundle: `$inertia->lazy()` (same class, different name)
+- Official: `Inertia::deepMerge()` → our bundle: `$inertia->merge($cb, deep: true)` (missing factory)
+- Official: `Inertia::defer()->once()` → our bundle: not yet supported

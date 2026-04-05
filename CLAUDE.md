@@ -227,6 +227,10 @@ docs(readme): add Flex installation instructions
 /plan   <feature>   → plan before coding (use in plan mode: Shift+Tab)
 /tdd    <feature>   → TDD cycle: Red → Green → Refactor
 /review             → full review: protocol + bundle conventions + coverage
+
+# Reference skills (auto-loaded by context, or invoke manually)
+/inertia-protocol   → HTTP protocol: page object, headers, status codes, filtering rules
+/inertia-props      → All prop types PHP API: optional, always, defer, once, merge, scroll
 ```
 
 ## Workflow
