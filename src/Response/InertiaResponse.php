@@ -77,10 +77,14 @@ final class InertiaResponse
         [$mergeProps, $prependProps, $deepMergeProps, $matchPropsOn] = $this->collectMergeArrays($props, $resolved, $scrollMergeIntent, $isPartial);
         $scrollProps = $this->collectScrollProps($props, $resolved, $reset);
 
-        // Collect onceProps metadata for keys that survived into resolved props.
+        // Collect onceProps metadata for ALL OnceProp instances, even when skipped via
+        // X-Inertia-Except-Once-Props. The client uses this metadata to re-inject the
+        // cached value when the prop is absent from the response (full SPA navigation).
+        // DeferProp::once() also emits onceProps metadata so the client caches the
+        // resolved value after the first deferred XHR and skips subsequent re-fetches.
         $oncePropsMeta = [];
         foreach ($props as $key => $prop) {
-            if ($prop instanceof OnceProp && \array_key_exists($key, $resolved)) {
+            if ($prop instanceof OnceProp) {
                 $expiresAt = $prop->getExpiresAt();
                 $alias = $prop->getAlias();
                 $meta = [
@@ -91,6 +95,20 @@ final class InertiaResponse
                     $meta['fresh'] = true;
                 }
                 $oncePropsMeta[$alias ?? $key] = $meta;
+                continue;
+            }
+            if ($prop instanceof DeferProp && $prop->isOnce()) {
+                $oncePropsMeta[$key] = [
+                    'prop' => $key,
+                    'expiresAt' => null,
+                ];
+                continue;
+            }
+            if ($prop instanceof LazyProp && $prop->isOnce()) {
+                $oncePropsMeta[$key] = [
+                    'prop' => $key,
+                    'expiresAt' => null,
+                ];
             }
         }
 
@@ -157,8 +175,13 @@ final class InertiaResponse
         foreach ($props as $key => $value) {
             // DeferProp: excluded on full render and on partial when key is not explicitly in $only.
             // On a deferred-fetch partial reload (key in $only), resolve and include.
+            // DeferProp::once(): skip resolution when client sends X-Inertia-Except-Once-Props
+            // (client already has the cached value from the first deferred XHR).
             if ($value instanceof DeferProp) {
                 if (!$isPartial || [] === $only || !\in_array($key, $only, true)) {
+                    continue;
+                }
+                if ($value->isOnce() && \in_array($key, $exceptOnce, true)) {
                     continue;
                 }
                 $resolved[$key] = $value->resolve();
@@ -173,12 +196,17 @@ final class InertiaResponse
             }
 
             // LazyProp: skip on full render; on partial, include only if explicitly in $only.
+            // LazyProp::once(): also skip when client sends X-Inertia-Except-Once-Props for this key
+            // (client already has the cached value from a previous partial resolve).
             if ($value instanceof LazyProp) {
                 if (!$isPartial || [] === $only || !\in_array($key, $only, true)) {
                     continue;
                 }
                 // $except wins: do not resolve if key is in $except.
                 if ([] !== $except && \in_array($key, $except, true)) {
+                    continue;
+                }
+                if ($value->isOnce() && \in_array($key, $exceptOnce, true)) {
                     continue;
                 }
                 $resolved[$key] = $value->resolve();
