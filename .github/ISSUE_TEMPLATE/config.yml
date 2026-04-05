@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Feature Request
+    url: https://github.com/nytodev/inertia-bundle/discussions/new?category=ideas
+    about: For feature requests and ideas, start a discussion.
+  - name: Support & Questions
+    url: https://github.com/nytodev/inertia-bundle/discussions/new?category=help
+    about: For usage questions and help, start a discussion.

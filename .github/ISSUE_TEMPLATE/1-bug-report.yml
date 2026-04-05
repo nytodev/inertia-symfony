@@ -1,0 +1,67 @@
+name: "🐛 Bug Report"
+description: Report a bug in nytodev/inertia-bundle
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before opening a bug report, please check that the issue has not already been reported.
+        For security vulnerabilities, see [SECURITY.md](https://github.com/nytodev/inertia-bundle/blob/2.x/SECURITY.md).
+
+  - type: input
+    id: bundle-version
+    attributes:
+      label: Bundle version
+      placeholder: "e.g. 2.0.0"
+    validations:
+      required: true
+
+  - type: input
+    id: backend-stack
+    attributes:
+      label: PHP & Symfony versions
+      placeholder: "e.g. PHP 8.3, Symfony 7.4"
+    validations:
+      required: true
+
+  - type: input
+    id: inertia-version
+    attributes:
+      label: Inertia.js version (frontend)
+      placeholder: "e.g. @inertiajs/vue3 2.0.0"
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: adapter
+    attributes:
+      label: Frontend adapter
+      options:
+        - label: React
+        - label: Vue 3
+        - label: Svelte
+        - label: Not applicable
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear and concise description of the problem.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: "Provide a minimal code example or steps to reproduce the issue. This is the most important part of the report — without it we cannot help."
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Logs, screenshots, or any other relevant information.
+    validations:
+      required: false
