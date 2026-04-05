@@ -294,6 +294,11 @@ final class Inertia implements ResetInterface
         return new LazyProp($callback);
     }
 
+    public function optional(\Closure $callback): LazyProp
+    {
+        return new LazyProp($callback);
+    }
+
     public function defer(\Closure $callback, string $group = 'default'): DeferProp
     {
         return new DeferProp($callback, $group);
@@ -305,11 +310,25 @@ final class Inertia implements ResetInterface
     }
 
     /**
-     * @param string|string[] $matchOn one or more field names for client-side deduplication
+     * @param string|string[] $matchOn         one or more field names for client-side deduplication
+     * @param string|string[] $appendsAtPaths  sub-paths to merge instead of the root prop (e.g. 'data' → 'posts.data')
+     * @param string|string[] $prependsAtPaths sub-paths to prepend instead of the root prop
      */
-    public function merge(\Closure $callback, bool $prepend = false, bool $deep = false, string|array $matchOn = []): MergeProp
+    public function merge(\Closure $callback, bool $prepend = false, bool $deep = false, string|array $matchOn = [], string|array $appendsAtPaths = [], string|array $prependsAtPaths = []): MergeProp
     {
-        return new MergeProp($callback, $prepend, $deep, $matchOn);
+        return new MergeProp($callback, $prepend, $deep, $matchOn, $appendsAtPaths, $prependsAtPaths);
+    }
+
+    /**
+     * Shorthand for merge() with deep=true.
+     *
+     * @param string|string[] $matchOn         one or more field names for client-side deduplication
+     * @param string|string[] $appendsAtPaths  sub-paths to deep-merge instead of the root prop
+     * @param string|string[] $prependsAtPaths sub-paths to prepend instead of the root prop
+     */
+    public function deepMerge(\Closure $callback, string|array $matchOn = [], string|array $appendsAtPaths = [], string|array $prependsAtPaths = []): MergeProp
+    {
+        return new MergeProp($callback, false, true, $matchOn, $appendsAtPaths, $prependsAtPaths);
     }
 
     /**
