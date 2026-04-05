@@ -1,0 +1,12 @@
+/.github export-ignore
+/coverage export-ignore
+/docs export-ignore
+/tests export-ignore
+/.php-cs-fixer.php export-ignore
+/.php-cs-fixer.cache export-ignore
+/phpstan.neon export-ignore
+/phpstan-tests.neon export-ignore
+/phpunit.xml.dist export-ignore
+/AGENTS.md export-ignore
+/CLAUDE.md export-ignore
+/CHANGELOG.md export-ignore
