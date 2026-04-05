@@ -62,7 +62,7 @@ jobs:
         run: vendor/bin/phpunit --no-coverage
 
   coverage:
-    name: "Coverage (PHP 8.3 / Symfony 7.4)"
+    name: "Coverage (PHP 8.4 / Symfony 8.0)"
     runs-on: ubuntu-latest
     needs: tests
 
@@ -70,10 +70,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup PHP 8.3 with Xdebug
+      - name: Setup PHP 8.4 with Xdebug
         uses: shivammathur/setup-php@v2
         with:
-          php-version: "8.3"
+          php-version: "8.4"
           extensions: mbstring, xml, ctype, iconv
           ini-values: error_reporting=E_ALL
           tools: composer:v2
@@ -85,6 +85,8 @@ jobs:
           timeout_minutes: 5
           max_attempts: 5
           command: composer update --prefer-stable --no-interaction
+        env:
+          SYMFONY_REQUIRE: "8.0.*"
 
       - name: PHPUnit with coverage
         run: vendor/bin/phpunit --coverage-text --coverage-clover=coverage/clover.xml
