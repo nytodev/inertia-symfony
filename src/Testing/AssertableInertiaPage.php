@@ -246,8 +246,6 @@ final class AssertableInertiaPage
 
             if (!\is_array($value) || !\array_key_exists($arrayKey, $value)) {
                 // path does not exist — key is missing as expected
-                Assert::assertTrue(true);
-
                 return;
             }
 

@@ -29,15 +29,11 @@ final class HttpSsrGateway implements SsrGatewayInterface
                 'json' => $page,
             ]);
 
-            /** @var array{head: list<string>, body: string}|null $data */
+            /** @var array{head: list<string>, body: string} $data */
             $data = $response->toArray();
         } catch (ExceptionInterface|\JsonException $e) {
             return null;
         }
-
-        if (null === $data) { // @codeCoverageIgnore
-            return null; // @codeCoverageIgnore
-        } // @codeCoverageIgnore
 
         return new SsrResponse(
             implode("\n", $data['head']),

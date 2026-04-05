@@ -84,7 +84,7 @@ final class InertiaTwigExtension extends AbstractExtension implements ResetInter
     {
         $this->dispatchOnce($page);
 
-        return $this->ssrResponse?->head ?? '';
+        return null !== $this->ssrResponse ? $this->ssrResponse->head : '';
     }
 
     /**
