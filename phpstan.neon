@@ -5,8 +5,6 @@ parameters:
 
     phpVersion: 80100
 
-    checkMissingIterableValueType: true
-    checkGenericClassInNonGenericObjectType: true
     reportUnmatchedIgnoredErrors: false
 
     ignoreErrors:
