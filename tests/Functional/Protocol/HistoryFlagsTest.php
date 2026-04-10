@@ -67,14 +67,13 @@ final class HistoryFlagsTest extends WebTestCase
 
         $this->assertResponseIsSuccessful();
         $content = (string) $client->getResponse()->getContent();
-        $this->assertStringContainsString('data-page', $content);
+        $this->assertStringContainsString('<script data-page="app" type="application/json">', $content);
 
-        // Extract data-page JSON from the HTML response
-        preg_match('/data-page=\'([^\']+)\'/', $content, $matches);
-        $rawJson = $matches[1] ?? '';
-        $this->assertNotEmpty($rawJson, 'data-page attribute must be present');
+        // Extract page object JSON from the script tag
+        $matched = preg_match('/<script[^>]+type="application\/json"[^>]*>([^<]+)<\/script>/s', $content, $matches);
+        $this->assertSame(1, $matched, '<script type="application/json"> tag must be present');
 
-        $data = json_decode(html_entity_decode($rawJson), true);
+        $data = json_decode($matches[1] ?? '', true);
         $this->assertIsArray($data);
         $this->assertTrue($data['clearHistory']);
     }

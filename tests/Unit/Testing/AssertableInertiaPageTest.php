@@ -353,7 +353,7 @@ final class AssertableInertiaPageTest extends TestCase
     private function makeHtmlResponse(array $data): Response
     {
         $json = (string) json_encode($data, \JSON_HEX_TAG | \JSON_HEX_APOS | \JSON_HEX_AMP | \JSON_HEX_QUOT);
-        $html = "<html><body><div id=\"app\" data-page='{$json}'></div></body></html>";
+        $html = "<html><body><script data-page=\"app\" type=\"application/json\">{$json}</script><div id=\"app\"></div></body></html>";
 
         return new Response($html, 200, ['Content-Type' => 'text/html']);
     }

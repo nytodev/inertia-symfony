@@ -21,21 +21,39 @@ final class FirstVisitTest extends FunctionalTestCase
     {
         $this->client->request('GET', '/test');
         self::assertResponseIsSuccessful();
-        self::assertStringContainsString('<div id="app"', (string) $this->client->getResponse()->getContent());
+        self::assertStringContainsString('<div id="app">', (string) $this->client->getResponse()->getContent());
     }
 
-    public function testFirstVisitHtmlContainsDataPageAttribute(): void
-    {
-        $this->client->request('GET', '/test');
-        self::assertStringContainsString('data-page=', (string) $this->client->getResponse()->getContent());
-    }
-
-    public function testFirstVisitDataPageJsonIsProperlyEscaped(): void
+    public function testFirstVisitHtmlContainsScriptTag(): void
     {
         $this->client->request('GET', '/test');
         $content = (string) $this->client->getResponse()->getContent();
-        // JSON_HEX_TAG means < and > are escaped as \u003C and \u003E
-        self::assertStringNotContainsString('<script', $content);
+        self::assertStringContainsString('<script data-page="app" type="application/json">', $content);
+    }
+
+    public function testFirstVisitDivIsEmpty(): void
+    {
+        $this->client->request('GET', '/test');
+        $content = (string) $this->client->getResponse()->getContent();
+        self::assertStringContainsString('<div id="app"></div>', $content);
+    }
+
+    public function testFirstVisitDataPageAttributeIsOnScriptNotDiv(): void
+    {
+        $this->client->request('GET', '/test');
+        $content = (string) $this->client->getResponse()->getContent();
+        // data-page must NOT appear on the div
+        self::assertDoesNotMatchRegularExpression('/<div[^>]+data-page/', $content);
+    }
+
+    public function testFirstVisitJsonEscapesClosingScriptTag(): void
+    {
+        // JSON_HEX_TAG must encode < and > so </script> cannot break out of the script block
+        $this->client->request('GET', '/test');
+        $content = (string) $this->client->getResponse()->getContent();
+        $matched = preg_match('/<script[^>]+type="application\/json"[^>]*>([^<]*)<\/script>/s', $content, $m);
+        self::assertSame(1, $matched, '<script type="application/json"> tag not found');
+        self::assertStringNotContainsString('</script>', $m[1] ?? '');
     }
 
     public function testFirstVisitPageObjectContainsAllRequiredV2Fields(): void
@@ -70,10 +88,10 @@ final class FirstVisitTest extends FunctionalTestCase
     private function extractPageObject(): array
     {
         $content = (string) $this->client->getResponse()->getContent();
-        $matched = preg_match('/data-page=\'(.+?)\'/', $content, $matches);
-        self::assertSame(1, $matched, 'data-page attribute not found in response');
+        $matched = preg_match('/<script[^>]+type="application\/json"[^>]*>([^<]+)<\/script>/s', $content, $matches);
+        self::assertSame(1, $matched, '<script type="application/json"> tag not found in response');
         $json = $matches[1] ?? null;
-        self::assertNotNull($json, 'data-page capture group is empty');
+        self::assertNotNull($json, 'script tag body is empty');
         $page = json_decode($json, true);
         self::assertIsArray($page);
 

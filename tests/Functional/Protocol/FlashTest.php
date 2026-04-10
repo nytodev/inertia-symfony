@@ -134,15 +134,15 @@ final class FlashTest extends FunctionalTestCase
     }
 
     /**
-     * Parse the data-page JSON from a first-visit HTML response.
+     * Parse the page object JSON from a first-visit HTML response.
      *
      * @return array<string, mixed>
      */
     private function extractPageObject(): array
     {
         $content = (string) $this->client->getResponse()->getContent();
-        $matched = preg_match('/data-page=\'(.+?)\'/', $content, $matches);
-        self::assertSame(1, $matched, 'data-page attribute not found in HTML response');
+        $matched = preg_match('/<script[^>]+type="application\/json"[^>]*>([^<]+)<\/script>/s', $content, $matches);
+        self::assertSame(1, $matched, '<script type="application/json"> tag not found in HTML response');
         $page = json_decode($matches[1] ?? '', true);
         self::assertIsArray($page);
 

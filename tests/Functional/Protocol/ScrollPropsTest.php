@@ -60,7 +60,7 @@ final class ScrollPropsTest extends FunctionalTestCase
 
     // --- HTML first visit ---
 
-    public function testScrollPropsOnHtmlFirstVisitAppearsInDataPageAttribute(): void
+    public function testScrollPropsOnHtmlFirstVisitAppearsInScriptTag(): void
     {
         $client = self::createClient();
         $client->request('GET', '/test/scroll-props');
@@ -68,12 +68,12 @@ final class ScrollPropsTest extends FunctionalTestCase
         $this->assertResponseIsSuccessful();
         $html = (string) $client->getResponse()->getContent();
 
-        $this->assertStringContainsString('data-page=', $html);
+        $this->assertStringContainsString('<script data-page="app" type="application/json">', $html);
 
-        $matched = preg_match('/data-page=\'([^\']+)\'/', $html, $matches);
-        $this->assertSame(1, $matched, 'data-page attribute not found in HTML');
+        $matched = preg_match('/<script[^>]+type="application\/json"[^>]*>([^<]+)<\/script>/s', $html, $matches);
+        $this->assertSame(1, $matched, '<script type="application/json"> tag not found in HTML');
         $json = $matches[1] ?? null;
-        $this->assertNotNull($json, 'data-page capture group is empty');
+        $this->assertNotNull($json, 'script tag body is empty');
         $page = json_decode($json, true, 512, \JSON_THROW_ON_ERROR);
 
         $this->assertArrayHasKey('scrollProps', $page);
