@@ -73,7 +73,7 @@ Your `root_view` template must output the Inertia root element and, optionally, 
 </html>
 ```
 
-- `inertia(page)` — outputs `<div id="app" data-page='...'></div>` (or SSR HTML when enabled).
+- `inertia(page)` — outputs `<script data-page="app" type="application/json">...</script><div id="app"></div>` (or SSR HTML when enabled).
 - `inertiaHead(page)` — outputs SSR-rendered `<head>` tags. Safe to include even when SSR is disabled (outputs nothing).
 
 ## JavaScript client setup
@@ -88,19 +88,20 @@ npm install @inertiajs/vue3 vue                   # Vue 3
 ```
 
 ```js
-// assets/app.jsx  (React)
+// assets/app.jsx  (React) — @inertiajs/react v3
 import { createInertiaApp } from '@inertiajs/react'
-import { createRoot } from 'react-dom/client'
 
+// Minimal — setup is optional in v3, Inertia calls createRoot() automatically
 createInertiaApp({
     resolve: name => {
         const pages = import.meta.glob('./Pages/**/*.jsx', { eager: true })
         return pages[`./Pages/${name}.jsx`]
     },
-    setup({ el, App, props }) {
-        createRoot(el).render(<App {...props} />)
-    },
 })
+
+// With explicit setup — still fully supported if you need manual control
+// import { createRoot } from 'react-dom/client'
+// setup({ el, App, props }) { createRoot(el).render(<App {...props} />) }
 ```
 
 ```js
@@ -138,15 +139,12 @@ Encore
 Webpack does not support `import.meta.glob()` — use `require.context()` instead:
 
 ```js
-// assets/app.jsx  (React)
+// assets/app.jsx  (React) — @inertiajs/react v3
 import { createInertiaApp } from '@inertiajs/react'
-import { createRoot } from 'react-dom/client'
 
 createInertiaApp({
     resolve: name => require(`./Pages/${name}`),
-    setup({ el, App, props }) {
-        createRoot(el).render(<App {...props} />)
-    },
+    // setup is optional in v3 — Inertia calls createRoot() automatically
 })
 ```
 

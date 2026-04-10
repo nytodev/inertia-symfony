@@ -57,7 +57,7 @@ Nytodev\InertiaBundle\InertiaBundle::class => ['all' => true],
 </html>
 ```
 
-`inertia(page)` outputs `<div id="app" data-page='...'></div>`.  
+`inertia(page)` outputs `<script data-page="app" type="application/json">...</script><div id="app"></div>`.  
 `inertiaHead(page)` outputs SSR-rendered head tags (safe to include even without SSR).
 
 ### 2. Controller
@@ -92,17 +92,13 @@ npm install @inertiajs/react react react-dom
 ```
 
 ```js
-// assets/app.jsx
+// assets/app.jsx — @inertiajs/react v3 (setup is optional, Inertia calls createRoot automatically)
 import { createInertiaApp } from '@inertiajs/react'
-import { createRoot } from 'react-dom/client'
 
 createInertiaApp({
     resolve: name => {
         const pages = import.meta.glob('./Pages/**/*.jsx', { eager: true })
         return pages[`./Pages/${name}.jsx`]
-    },
-    setup({ el, App, props }) {
-        createRoot(el).render(<App {...props} />)
     },
 })
 ```

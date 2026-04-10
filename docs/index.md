@@ -16,7 +16,7 @@ Symfony bundle implementing the [Inertia.js](https://inertiajs.com/) v2 server-s
 
 Inertia is a protocol that lets you build single-page applications without building a separate API. The server renders a component name and props; the JavaScript adapter (React, Vue, Svelte…) mounts the matching component.
 
-- **First visit** — the server returns a full HTML page with a `<div id="app" data-page='...'>` root element.
+- **First visit** — the server returns a full HTML page with a `<script data-page="app" type="application/json">...</script><div id="app"></div>` root element.
 - **Subsequent visits** — the client sends `X-Inertia: true`; the server returns a JSON page object instead of HTML.
 - **Partial reloads** — the client can request only a subset of props via `X-Inertia-Partial-Data`.
 

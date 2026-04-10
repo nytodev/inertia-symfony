@@ -36,7 +36,7 @@ public function testUsersIndexRendersCorrectly(): void
 }
 ```
 
-`assertInertia()` works with both XHR responses (`X-Inertia: true`) and plain HTML first-visit responses (it parses `data-page` from the HTML in that case).
+`assertInertia()` works with both XHR responses (`X-Inertia: true`) and plain HTML first-visit responses (it extracts the page object from the `<script type="application/json">` tag in that case).
 
 ## Available assertions
 
