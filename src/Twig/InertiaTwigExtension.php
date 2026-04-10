@@ -64,10 +64,7 @@ final class InertiaTwigExtension extends AbstractExtension implements ResetInter
             return $this->ssrResponse->body;
         }
 
-        $json = json_encode(
-            $page,
-            \JSON_HEX_TAG | \JSON_HEX_APOS | \JSON_HEX_AMP | \JSON_HEX_QUOT | \JSON_THROW_ON_ERROR,
-        );
+        $json = json_encode($page, \JSON_HEX_TAG | \JSON_THROW_ON_ERROR);
 
         return '<script data-page="app" type="application/json">'.$json.'</script><div id="app"></div>';
     }
