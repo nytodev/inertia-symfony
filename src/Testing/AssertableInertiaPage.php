@@ -33,7 +33,7 @@ final class AssertableInertiaPage
      *
      * Supports:
      *  - XHR responses (X-Inertia: true header) — parses JSON body
-     *  - HTML first-visit responses — extracts data-page attribute
+     *  - HTML first-visit responses — extracts JSON from <script type="application/json"> tag
      */
     public static function fromResponse(Response $response): static
     {
@@ -43,8 +43,8 @@ final class AssertableInertiaPage
         } else {
             $content = (string) $response->getContent();
 
-            if (1 !== preg_match("/data-page='([^']+)'/", $content, $matches)) {
-                Assert::fail('No Inertia page data found in response. Expected an X-Inertia header or a data-page attribute.');
+            if (1 !== preg_match('/<script[^>]+type="application\/json"[^>]*>([^<]+)<\/script>/s', $content, $matches)) {
+                Assert::fail('No Inertia page data found in response. Expected an X-Inertia header or a <script type="application/json"> tag.');
             }
 
             /** @var array<string, mixed>|null $page */

@@ -17,10 +17,8 @@ use Twig\Environment;
 
 /**
  * Builds the Inertia page object and returns the appropriate HTTP response:
- * - HTML (with data-page attribute) on first visit
+ * - HTML (with <script type="application/json"> tag) on first visit
  * - JSON (page object) on Inertia XHR visits
- *
- * TODO: Inertia v3 — data-page attribute → <script type="application/json"> tag
  */
 final class InertiaResponse
 {

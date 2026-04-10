@@ -12,14 +12,12 @@ use Twig\TwigFunction;
 
 /**
  * Provides Twig functions for rendering Inertia root elements:
- *   {{ inertia(page) }}      → SSR body, or <div id="app" data-page="..."></div> as fallback
+ *   {{ inertia(page) }}      → SSR body, or <script type="application/json"> + <div id="app"> as fallback
  *   {{ inertiaHead(page) }}  → SSR head content (empty string when SSR disabled)
  *
  * The SSR gateway is called at most once per request; the result is cached until reset().
  * reset() is called automatically between requests in FrankenPHP/ReactPHP workers
  * via the kernel.reset container tag.
- *
- * TODO: Inertia v3 — inertia() renders <script type="application/json"> instead of data-page attr
  */
 final class InertiaTwigExtension extends AbstractExtension implements ResetInterface
 {
@@ -54,7 +52,7 @@ final class InertiaTwigExtension extends AbstractExtension implements ResetInter
     /**
      * Renders the Inertia mount point.
      * Returns the SSR-rendered body when available,
-     * or the classic <div id="app" data-page='...'></div> as fallback.
+     * or the v3 format <script type="application/json"> + <div id="app"> as fallback.
      *
      * @param array<string, mixed> $page
      */
@@ -71,7 +69,7 @@ final class InertiaTwigExtension extends AbstractExtension implements ResetInter
             \JSON_HEX_TAG | \JSON_HEX_APOS | \JSON_HEX_AMP | \JSON_HEX_QUOT | \JSON_THROW_ON_ERROR,
         );
 
-        return '<div id="app" data-page=\''.$json.'\'></div>';
+        return '<script data-page="app" type="application/json">'.$json.'</script><div id="app"></div>';
     }
 
     /**
