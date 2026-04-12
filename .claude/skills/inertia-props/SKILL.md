@@ -1,9 +1,9 @@
 ---
 name: inertia-props
-description: Complete PHP API reference for all Inertia.js v2 prop types (optional/lazy, always, defer, once, merge, deepMerge, scroll). Auto-loaded when working on Props/, Service/Inertia.php, or InertiaResponse.php.
+description: Complete PHP API reference for all Inertia.js v3 prop types (optional/lazy, always, defer, once, merge, deepMerge, scroll). Auto-loaded when working on Props/, Service/Inertia.php, or InertiaResponse.php.
 ---
 
-# Inertia.js v2 — Prop Types Reference
+# Inertia.js v3 — Prop Types Reference
 
 Complete reference for all prop types: official PHP API, our bundle's API, behavior, and page object output.
 
@@ -23,13 +23,13 @@ Complete reference for all prop types: official PHP API, our bundle's API, behav
 
 ## `optional()` — LazyProp
 
-**Official v2 API:**
+**Official v3 API:**
 ```php
 Inertia::optional(fn () => Permission::all())
 // Chain with once:
 Inertia::optional(fn () => Permission::all())->once()
 ```
-**Our bundle:** `$inertia->lazy(fn () => ...)` — same behaviour, deprecated name.
+**Our bundle:** `$inertia->optional(fn () => ...)` — canonical name. `lazy()` is a deprecated alias that still works.
 
 - Full render: ❌ **never included**
 - Partial with `only: ['permissions']`: ✅ resolved
@@ -235,7 +235,7 @@ $inertia->scroll(fn () => $posts, nextPage: 2)->defer('myGroup')
 
 ## `flash()` — Flash Data
 
-**Official v2 API:**
+**Official v3 API (Laravel):**
 ```php
 Inertia::flash('message', 'User created!');
 return back();
@@ -247,8 +247,13 @@ return Inertia::render('Page', $props)->flash('highlight', $id);
 
 **Our bundle:** `$inertia->flash(string $key, mixed $value): void` (returns void, not chainable).
 
-Flash data appears in `props.flash` in the response. Client accesses via `page.props.flash.key`.
-Not stored in browser history state.
+**v3 IMPORTANT: Flash is a TOP-LEVEL page object field, NOT inside `props`.**
+- v2: `props.flash.key` → v3: `page.flash.key` (top-level)
+- Omitted when empty; client defaults to `{}`
+- Client fires `inertia:flash` event when `flash` contains data
+- Not stored in browser history state (client clears `flash: {}` before pushState)
+
+**Current bundle status:** Our bundle currently puts flash inside `props.flash` — this needs to be moved to a top-level `flash` field in `buildPageObject()`. Tracked as an open gap.
 
 ---
 

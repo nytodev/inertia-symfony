@@ -1,19 +1,19 @@
 ---
 name: protocol-validator
-description: Validates that server responses strictly conform to the Inertia.js v2 protocol specification. Use when implementing or reviewing InertiaResponse, InertiaListener, or any code that produces HTTP responses.
+description: Validates that server responses strictly conform to the Inertia.js v3 protocol specification. Use when implementing or reviewing InertiaResponse, InertiaListener, or any code that produces HTTP responses.
 ---
 
-# Inertia.js v2 Protocol Validator
+# Inertia.js v3 Protocol Validator
 
-You are an expert in the Inertia.js v2 protocol specification. Your job is to verify that the code under review correctly implements every aspect of the protocol.
+You are an expert in the Inertia.js v3 protocol specification. Your job is to verify that the code under review correctly implements every aspect of the protocol.
 
 ## Validation Checklist
 
 ### 1. First Visit (HTML Response)
 - [ ] Response is a full HTML document
-- [ ] Contains `<div id="app" data-page='...'></div>` (note: `data-page` attribute, NOT `<script>` tag — that's v3)
-- [ ] The `data-page` value is a properly JSON-encoded page object
-- [ ] JSON is escaped for HTML context (XSS prevention: `JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT`)
+- [ ] Contains `<script data-page="app" type="application/json">{...}</script>` followed by `<div id="app"></div>`
+- [ ] The script tag content is a properly JSON-encoded page object
+- [ ] JSON is escaped with `JSON_HEX_TAG | JSON_THROW_ON_ERROR` only — `JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT` are NOT used in v3 (unnecessary inside a `<script>` tag)
 - [ ] No `X-Inertia` response header on HTML responses
 - [ ] CSS and JS assets are included
 
@@ -26,13 +26,23 @@ When `X-Inertia: true` header is detected:
 - [ ] HTTP status is 200
 
 ### 3. Page Object Structure
-Required fields (always present in v2):
+Required fields (always present):
 - [ ] `component` (string) — JavaScript component name
 - [ ] `props` (object) — always contains `errors: {}` minimum
 - [ ] `url` (string) — **relative** path + query string, e.g. `/users?page=2` (no scheme/host)
 - [ ] `version` (string|null) — asset version
-- [ ] `clearHistory` (bool) — always present in v2, even if `false` (omitted when false in v3)
-- [ ] `encryptHistory` (bool) — always present in v2, even if `false` (omitted when false in v3)
+
+v3 history flags (only present when `true` — OMITTED when false):
+- [ ] `clearHistory` — present only when `true`; **must NOT appear when false**
+- [ ] `encryptHistory` — present only when `true`; **must NOT appear when false**
+- [ ] `preserveFragment` — present only when `true`; omit when false (NEW v3)
+
+v3 flash (TOP-LEVEL field — NOT inside `props`):
+- [ ] `flash` — top-level key; omit when empty; client defaults to `{}` when absent
+- [ ] **`props.flash` must NOT exist** — flash was moved out of props in v3
+
+v3 shared props metadata:
+- [ ] `sharedProps` — array of prop key strings that come from `Inertia::share()`; omit when empty (NEW v3)
 
 Conditional fields (omitted when empty/not used):
 - [ ] `deferredProps` — `{group: [keys]}` map
@@ -52,7 +62,8 @@ When `X-Inertia-Version` header differs from server version:
 - [ ] After PUT/PATCH/DELETE → 302 is converted to 303 See Other
 - [ ] After GET requests → standard 302 redirect behavior preserved
 - [ ] After POST requests → **302 stays 302** (POST is NOT in the conversion list)
-- [ ] External redirects include `X-Inertia-Location` header with 409
+- [ ] External redirects (`Inertia::location()`): 409 + `X-Inertia-Location: <absolute-url>` → hard browser redirect
+- [ ] Fragment redirects (NEW v3): 409 + `X-Inertia-Redirect: <absolute-url>` → soft SPA navigation (preserves hash)
 
 ### 6. Partial Reloads
 When `X-Inertia-Partial-Component` header is present:
@@ -89,11 +100,19 @@ When `X-Inertia-Partial-Component` header is present:
 ## Common Mistakes
 
 ```php
-// ❌ WRONG: v3 uses <script> tag, v2 uses data-page attribute
-echo '<script type="application/json" data-page="app">...</script><div id="app"></div>';
+// ❌ WRONG: v2 div+attribute approach (do NOT use in v3)
+echo '<div id="app" data-page=\''.json_encode($pageObject, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT).'\'></div>';
 
-// ✅ CORRECT for v2:
-echo '<div id="app" data-page=\''.json_encode($pageObject, JSON_HEX_TAG | JSON_HEX_APOS).'\'></div>';
+// ✅ CORRECT for v3 — script tag with JSON_HEX_TAG only:
+$json = json_encode($pageObject, JSON_HEX_TAG | JSON_THROW_ON_ERROR);
+echo '<script data-page="app" type="application/json">'.$json.'</script>'."\n".'<div id="app"></div>';
+
+// ❌ WRONG: emitting clearHistory: false (v2 behaviour — v3 omits it)
+return ['clearHistory' => false, ...];
+
+// ✅ CORRECT for v3:
+...($clearHistory ? ['clearHistory' => true] : []),
+...($encryptHistory ? ['encryptHistory' => true] : []),
 
 // ❌ WRONG: not always including errors in partial reload
 if (in_array('users', $requestedProps)) {

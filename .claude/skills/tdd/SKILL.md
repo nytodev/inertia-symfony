@@ -22,6 +22,13 @@ Implement **$ARGUMENTS** using strict Test-Driven Development.
 Read the relevant section of `AGENTS.md` and `.claude/skills/inertia-protocol/SKILL.md`.
 Identify which protocol behavior needs to be implemented.
 
+Check how inertia-laravel tests the same behavior — it is the reference implementation:
+```bash
+find /home/tony/Documents/tony/inertia-laravel/tests -name "*.php" | xargs grep -l "<keyword>" 2>/dev/null
+```
+Read the relevant test(s) to understand what cases to cover and how assertions are structured.
+Align test naming and coverage with the Laravel reference before writing anything.
+
 ### 2. Write the failing test
 Create the test file. Run it and confirm it FAILS:
 ```bash

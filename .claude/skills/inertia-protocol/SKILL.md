@@ -1,9 +1,9 @@
 ---
 name: inertia-protocol
-description: Complete reference for the Inertia.js v2 server-side protocol. Auto-loaded when working on InertiaResponse, InertiaListener, Inertia service, or any HTTP response handling.
+description: Complete reference for the Inertia.js v3 server-side protocol. Auto-loaded when working on InertiaResponse, InertiaListener, Inertia service, or any HTTP response handling.
 ---
 
-# Inertia.js v2 Protocol Reference
+# Inertia.js v3 Protocol Reference
 
 ## Request Detection
 
@@ -37,14 +37,11 @@ $scrollIntent = $request->headers->get('X-Inertia-Infinite-Scroll-Merge-Intent')
 ### HTML (first visit — no X-Inertia header)
 
 ```php
-// v2: data-page attribute on the root div
-$json = json_encode($pageObject, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT);
-$html = '<div id="app" data-page=\'' . $json . '\'></div>';
+// v3: JSON embedded in a <script> tag (prevents </script> injection without extra escaping)
+$json = json_encode($pageObject, JSON_HEX_TAG | JSON_THROW_ON_ERROR);
+$html = '<script data-page="app" type="application/json">' . $json . '</script>' . "\n" . '<div id="app"></div>';
 // Headers: Vary: X-Inertia
-
-// NOTE: v3 uses a different approach:
-// <script type="application/json" data-page="app">{...}</script><div id="app"></div>
-// We are implementing v2 here.
+// Note: JSON_HEX_TAG alone is sufficient inside a <script> tag — JSON_HEX_APOS/AMP/QUOT are NOT needed.
 ```
 
 ### JSON (XHR visit — X-Inertia: true header present)
@@ -56,20 +53,31 @@ $response->headers->set('Vary', 'X-Inertia');
 $response->headers->set('Content-Type', 'application/json');
 ```
 
-## Page Object (v2) — Canonical Structure
+## Page Object (v3) — Canonical Structure
 
 ```php
 $pageObject = [
-    // ALWAYS present in v2:
+    // ALWAYS present:
     'component'      => 'User/Edit',          // string
     'props'          => ['errors' => [], ...], // always has 'errors' key (default [])
     'url'            => '/user/123',           // RELATIVE path + query (no scheme/host)
     'version'        => '6b16b94d7c51',        // string|null
-    'clearHistory'   => false,                 // always present in v2, even if false
-    'encryptHistory' => false,                 // always present in v2, even if false
-    // TODO: Inertia v3 — clearHistory/encryptHistory omitted when false
 
-    // CONDITIONAL (omit key entirely when empty):
+    // CONDITIONAL — omit entirely when false/empty:
+    // v3 history flags: only present when true (omit when false — v3 change from v2)
+    'clearHistory'   => true,
+    'encryptHistory' => true,
+    'preserveFragment' => true,              // NEW v3: preserve URL hash on redirect; omit when false
+
+    // Flash data: TOP-LEVEL field (NOT inside props) — v3 change from v2
+    // Omit when empty; client defaults to {} when absent
+    'flash'          => ['message' => 'Saved!'],
+
+    // Shared prop keys metadata (NEW v3): list of keys that come from Inertia::share()
+    // Allows client to distinguish shared vs page-specific props. Omit when empty.
+    'sharedProps'    => ['auth', 'appName'],
+
+    // Other conditional fields (omit when empty):
     'deferredProps'  => ['default' => ['comments'], 'sidebar' => ['related']],
     'mergeProps'     => ['posts'],             // or ['posts.data'] for sub-path
     'prependProps'   => ['notifications'],
@@ -81,13 +89,30 @@ $pageObject = [
 ];
 ```
 
-### Official page object examples (from inertiajs.com/docs/v2/core-concepts/the-protocol):
+### Official page object examples (v3):
 
-**Basic:**
+**Basic (clearHistory/encryptHistory absent when false):**
 ```json
 { "component": "User/Edit", "props": { "errors": {}, "user": { "name": "Jonathan" } },
-  "url": "/user/123", "version": "6b16b94d7c51cbe5b1fa42aac98241d5",
-  "clearHistory": false, "encryptHistory": false }
+  "url": "/user/123", "version": "6b16b94d7c51cbe5b1fa42aac98241d5" }
+```
+
+**With clearHistory:**
+```json
+{ "component": "User/Edit", "props": { "errors": {} }, "url": "/users", "version": null,
+  "clearHistory": true }
+```
+
+**With flash data (top-level, not in props):**
+```json
+{ "component": "User/Edit", "props": { "errors": {} }, "url": "/users", "version": null,
+  "flash": { "message": "User created!" } }
+```
+
+**With sharedProps:**
+```json
+{ "component": "Dashboard", "props": { "errors": {}, "auth": {...}, "appName": "MyApp" },
+  "url": "/dashboard", "version": null, "sharedProps": ["auth", "appName"] }
 ```
 
 **With deferred props:**
@@ -178,6 +203,27 @@ On partial reload:
   - MergeProp, ScrollProp: follows $only/$except filtering
 ```
 
+## 409 Responses — Two Distinct Types (v3)
+
+v3 distinguishes two kinds of 409 responses by header:
+
+| Header | Client behaviour | Use case |
+|--------|-----------------|----------|
+| `X-Inertia-Location: <absolute-url>` | Hard browser redirect (`window.location.href`) | External URL, `Inertia::location()` |
+| `X-Inertia-Redirect: <absolute-url>` | Soft SPA navigation (`router.visit()`) | Redirect with URL fragment (hash) |
+
+**NEW v3 — `X-Inertia-Redirect`** (in Laravel Middleware `onRedirectWithFragment()`):
+```php
+// When a redirect contains a URL fragment (#hash):
+return response('', 409, ['X-Inertia-Redirect' => $response->headers->get('Location')]);
+```
+The client performs a soft navigation, preserving the fragment correctly.
+
+`X-Inertia-Location` (existing, hard redirect):
+```php
+return response('', 409, ['X-Inertia-Location' => $request->getUri()]);
+```
+
 ## HTTP Status Codes
 
 | Code | When |
@@ -185,7 +231,7 @@ On partial reload:
 | 200  | Normal response (HTML or JSON) |
 | 302  | Redirect (GET requests) |
 | 303  | Redirect after PUT/PATCH/DELETE |
-| 409  | Asset version mismatch (GET only) OR `Inertia::location()` external redirect |
+| 409  | Version mismatch OR external redirect (`X-Inertia-Location`) OR fragment redirect (`X-Inertia-Redirect`) |
 
 ## Props Types Summary
 
@@ -193,14 +239,14 @@ On partial reload:
 |------|---------|----------------|----------------|-----------------|
 | Direct value | `mixed` | ✅ Always | ✅ Optionally | `props` |
 | Closure | `fn() => ...` | ✅ Always | ✅ Optionally | `props` |
-| LazyProp | `optional()` *(our bundle: `lazy()`)* | ❌ Never | ✅ Only if in `$only` | `props` |
+| LazyProp | `optional()` *(alias: `lazy()`)* | ❌ Never | ✅ Only if in `$only` | `props` |
 | AlwaysProp | `always()` | ✅ Always | ✅ Always | `props` |
 | DeferProp | `defer($cb, $group)` | ❌ Never | ✅ Separate XHR | `deferredProps` |
 | OnceProp | `once()` | ✅ First time | ❌ Skip if in `X-Inertia-Except-Once-Props` | `props` + `onceProps` |
 | MergeProp | `merge()` / `deepMerge()` *(our bundle: `merge(deep:true)`)* | ✅ Yes | ✅ Yes | `props` + `mergeProps`/`prependProps`/`deepMergeProps` |
 | ScrollProp | `scroll()` | ✅ Yes | ✅ Yes | `props` + `mergeProps` + `scrollProps` |
 
-**Note on our bundle vs official v2 API:**
-- Official: `Inertia::optional()` → our bundle: `$inertia->lazy()` (same class, different name)
-- Official: `Inertia::deepMerge()` → our bundle: `$inertia->merge($cb, deep: true)` (missing factory)
-- Official: `Inertia::defer()->once()` → our bundle: not yet supported
+**Note on our bundle API:**
+- `optional()` is the canonical name; `lazy()` is a deprecated alias — both work
+- `Inertia::deepMerge()` → our bundle: `$inertia->merge($cb, deep: true)` (no separate factory)
+- `Inertia::defer()->once()` → not yet supported in our bundle

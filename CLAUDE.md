@@ -1,6 +1,6 @@
 # CLAUDE.md — symfony-inertia-bundle
 
-Symfony Bundle implementing the **Inertia.js v2 server-side protocol** — the equivalent of
+Symfony Bundle implementing the **Inertia.js v3 server-side protocol** — the equivalent of
 `inertiajs/inertia-laravel` for Symfony 6.4 / 7.4 / 8.0.
 
 ---
@@ -10,7 +10,7 @@ Symfony Bundle implementing the **Inertia.js v2 server-side protocol** — the e
 | Key | Value |
 |-----|-------|
 | Type | Reusable Symfony Bundle (not an app) |
-| Inertia.js | v2 protocol (v3 migration path planned) |
+| Inertia.js | v3 protocol (branch `3.x`) |
 | Symfony min | 6.4 LTS |
 | PHP min | 8.1 |
 | Bundle class | `AbstractBundle` — never `Bundle` + separate `Extension` |
@@ -69,14 +69,16 @@ vendor/bin/php-cs-fixer fix                           # code style fix
 
 ---
 
-## Inertia.js v2 protocol — critical rules
+## Inertia.js v3 protocol — critical rules
 
 ### First visit (no `X-Inertia` header)
-Returns full HTML with `data-page` attribute on root div:
+Returns full HTML with a `<script>` tag containing the page object JSON:
 ```html
-<div id="app" data-page='{"component":"...","props":{},...}'></div>
+<script data-page="app" type="application/json">{"component":"...","props":{},...}</script>
+<div id="app"></div>
 ```
-JSON must be escaped: `JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT`
+JSON must be escaped with `JSON_HEX_TAG | JSON_THROW_ON_ERROR` (prevents `</script>` injection).
+`JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT` are not needed inside a `<script>` tag.
 
 ### XHR visit (`X-Inertia: true` header present)
 Returns JSON page object with headers:
@@ -84,7 +86,7 @@ Returns JSON page object with headers:
 - `X-Inertia: true`
 - `Vary: X-Inertia`
 
-### Page object fields (v2)
+### Page object fields (v3)
 
 **Always present:**
 ```json
@@ -92,13 +94,11 @@ Returns JSON page object with headers:
     "component": "string",
     "props": { "errors": {} },
     "url": "/path?query",
-    "version": "string|null",
-    "clearHistory": false,
-    "encryptHistory": false
+    "version": "string|null"
 }
 ```
 - `url` is a **relative path + query string** (e.g. `/users?page=2`), never an absolute URL with scheme/host
-- `clearHistory` and `encryptHistory` are **always present** in v2, even if `false` — this changes in v3
+- `clearHistory` and `encryptHistory` are **omitted when false** — only present when `true` (v3 change from v2)
 
 **Conditionally present (omitted if empty):**
 ```json
@@ -156,18 +156,34 @@ symfony-inertia-bundle/
 ├── src/
 │   ├── InertiaBundle.php       ← AbstractBundle: configure() + loadExtension()
 │   ├── Service/
-│   │   └── Inertia.php         ← render(), share(), shareOnce(), defer(), once(), version()
+│   │   └── Inertia.php         ← render(), share(), shareOnce(), flash(), errors(),
+│   │                              clearHistory(), encryptHistory(), version(),
+│   │                              lazy(), optional(), always(), defer(), once(),
+│   │                              merge(), deepMerge(), location(), scroll()
 │   ├── Response/
 │   │   └── InertiaResponse.php ← builds page object, handles HTML vs JSON
 │   ├── EventListener/
 │   │   └── InertiaListener.php ← kernel.request (detect, version check) + kernel.response (302→303)
 │   ├── Props/
+│   │   ├── AlwaysProp.php
 │   │   ├── LazyProp.php
 │   │   ├── DeferProp.php
 │   │   ├── OnceProp.php
-│   │   └── MergeProp.php
+│   │   ├── MergeProp.php
+│   │   └── ScrollProp.php
+│   ├── Ssr/
+│   │   ├── SsrGatewayInterface.php
+│   │   ├── NullSsrGateway.php
+│   │   ├── HttpSsrGateway.php
+│   │   └── SsrResponse.php
+│   ├── Command/
+│   │   ├── StartSsrCommand.php
+│   │   ├── StopSsrCommand.php
+│   │   └── CheckSsrCommand.php
+│   ├── Testing/
+│   │   └── AssertableInertiaPage.php
 │   ├── Twig/
-│   │   └── InertiaTwigExtension.php   ← inertia(page), inertiaHead(page)
+│   │   └── InertiaTwigExtension.php   ← inertia(page), inertiaHead(page); SSR-aware
 │   └── Controller/
 │       └── AbstractInertiaController.php
 └── tests/
@@ -176,8 +192,17 @@ symfony-inertia-bundle/
         └── Protocol/
             ├── FirstVisitTest.php
             ├── XhrVisitTest.php
+            ├── HistoryFlagsTest.php
             ├── AssetVersionTest.php
             ├── PartialReloadTest.php
+            ├── DeferredPropsTest.php
+            ├── MergePropsPathTest.php
+            ├── MatchPropsOnTest.php
+            ├── ScrollPropsTest.php
+            ├── FlashTest.php
+            ├── ValidationErrorsTest.php
+            ├── LocationTest.php
+            ├── SsrTest.php
             └── RedirectTest.php
 ```
 
@@ -207,17 +232,23 @@ docs(readme): add Flex installation instructions
 
 ---
 
-## Inertia v2 → v3 migration notes
+## v2 → v3 migration — changes implemented on branch `3.x`
 
-**v3.0.0 released 2026-03-24.** This project currently targets v2. Mark future migration points with `// TODO: Inertia v3`:
+**v3.0.0 released 2026-03-24.** Branch `3.x` targets v3. The following breaking changes from v2 are **already implemented**:
 
-| Area | v2 (current) | v3 |
-|------|-------------|-----|
-| HTML embedding | `<div id="app" data-page='...'>` attribute | `<script type="application/json">` tag |
-| `clearHistory` | Always present, even if `false` | Omitted when `false` |
-| `encryptHistory` | Always present, even if `false` | Omitted when `false` |
-| `sharedProps` | Absent from page object | Added as metadata field |
-| `X-Inertia-Redirect` | Absent | Added response header |
+| Area | v2 | v3 (implemented) |
+|------|-----|------------------|
+| HTML embedding | `<div id="app" data-page='...'>` attribute | `<script data-page="app" type="application/json">` tag ✅ |
+| JSON escaping | `JSON_HEX_TAG\|APOS\|AMP\|QUOT` | `JSON_HEX_TAG` only (sufficient in script context) ✅ |
+| `clearHistory` | Always present, even if `false` | Omitted when `false` ✅ |
+| `encryptHistory` | Always present, even if `false` | Omitted when `false` ✅ |
+
+**Not yet implemented (future work):**
+
+| Area | v3 spec | Status |
+|------|---------|--------|
+| `sharedProps` | Added as metadata field in page object | ❌ Not implemented |
+| `X-Inertia-Redirect` | Added response header on redirect | ❌ Not implemented |
 
 ---
 

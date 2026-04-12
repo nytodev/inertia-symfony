@@ -48,6 +48,13 @@ Minimum: 95%
 - `static` return type on `final` class factory methods — equivalent to `self`, PHPStan does not flag it.
 - `X-Inertia-Location` header value is the **absolute** URL (`$request->getUri()`) — this is correct per
   protocol and matches Laravel's `$request->fullUrl()`. It is NOT a page object `url` field (which must be relative).
+- `Vary: X-Inertia` on first-visit HTML responses (`InertiaResponse.php:142`) — intentional cache protection.
+  Laravel sets it unconditionally on ALL responses (Middleware.php:139). Without it, a CDN/proxy could serve
+  a cached JSON response to a real browser (or vice-versa). Do NOT remove.
+- `X-Inertia` guard on 302→303 conversion (`InertiaListener.php:99`) — intentional divergence from Laravel.
+  Laravel uses opt-in middleware (only Inertia routes); Symfony listener fires globally on ALL requests.
+  Removing the guard would convert 302→303 on non-Inertia API routes too. The guard is correct in Symfony's
+  architecture. Native browser PUT/PATCH/DELETE forms don't exist in HTML, so the "missed conversion" risk is nil.
 
 ## Critical protocol invariant to check
 

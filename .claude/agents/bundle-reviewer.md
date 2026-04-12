@@ -38,7 +38,8 @@ This bundle uses `AbstractBundle` (introduced in Symfony 6.1, minimum version is
 - [ ] `_defaults:` section is ABSENT or explicitly sets `autowire: false` and `autoconfigure: false`
 - [ ] All services prefixed with `inertia.*`
 - [ ] All services have `public: false` (default)
-- [ ] Public alias exists: `Nytodev\InertiaBundle\Service\Inertia: { alias: inertia.service, public: true }`
+- [ ] Public alias exists for the main service: `Nytodev\InertiaBundle\Service\Inertia: { alias: inertia.service, public: true }`
+- [ ] **Do NOT add public aliases for internal/infrastructure interfaces** (e.g. `SsrGatewayInterface`) — only the main public API (`Inertia` service) needs a public alias. Adding aliases for internal interfaces is speculative and violates "keep it simple".
 - [ ] All arguments listed explicitly (no `@=` or `$` autowiring shortcuts)
 - [ ] Event listener/subscriber tagged with `{ name: kernel.event_subscriber }`
 - [ ] Twig extension tagged with `{ name: twig.extension }`
