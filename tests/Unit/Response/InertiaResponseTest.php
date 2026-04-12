@@ -6,9 +6,9 @@ namespace Nytodev\InertiaBundle\Tests\Unit\Response;
 
 use Nytodev\InertiaBundle\Props\AlwaysProp;
 use Nytodev\InertiaBundle\Props\DeferProp;
-use Nytodev\InertiaBundle\Props\LazyProp;
 use Nytodev\InertiaBundle\Props\MergeProp;
 use Nytodev\InertiaBundle\Props\OnceProp;
+use Nytodev\InertiaBundle\Props\OptionalProp;
 use Nytodev\InertiaBundle\Props\ScrollProp;
 use Nytodev\InertiaBundle\Response\InertiaResponse;
 use Nytodev\InertiaBundle\Twig\InertiaTwigExtension;
@@ -34,16 +34,39 @@ final class InertiaResponseTest extends TestCase
     // buildPageObject()
     // -------------------------------------------------------------------------
 
-    public function testBuildPageObjectAlwaysIncludesClearHistoryAndEncryptHistory(): void
+    public function testBuildPageObjectOmitsClearHistoryAndEncryptHistoryWhenFalse(): void
     {
         $page = $this->response->buildPageObject('Home', [], '/home', null, false, false);
-        self::assertArrayHasKey('clearHistory', $page);
-        self::assertArrayHasKey('encryptHistory', $page);
-        self::assertFalse($page['clearHistory']);
-        self::assertFalse($page['encryptHistory']);
+        self::assertArrayNotHasKey('clearHistory', $page);
+        self::assertArrayNotHasKey('encryptHistory', $page);
     }
 
-    public function testBuildPageObjectContainsAllRequiredV2Fields(): void
+    public function testBuildPageObjectIncludesClearHistoryWhenTrue(): void
+    {
+        $page = $this->response->buildPageObject('Home', [], '/home', null, true, false);
+        self::assertArrayHasKey('clearHistory', $page);
+        self::assertTrue($page['clearHistory']);
+        self::assertArrayNotHasKey('encryptHistory', $page);
+    }
+
+    public function testBuildPageObjectIncludesEncryptHistoryWhenTrue(): void
+    {
+        $page = $this->response->buildPageObject('Home', [], '/home', null, false, true);
+        self::assertArrayNotHasKey('clearHistory', $page);
+        self::assertArrayHasKey('encryptHistory', $page);
+        self::assertTrue($page['encryptHistory']);
+    }
+
+    public function testBuildPageObjectIncludesBothFlagsWhenBothTrue(): void
+    {
+        $page = $this->response->buildPageObject('Home', [], '/home', null, true, true);
+        self::assertArrayHasKey('clearHistory', $page);
+        self::assertTrue($page['clearHistory']);
+        self::assertArrayHasKey('encryptHistory', $page);
+        self::assertTrue($page['encryptHistory']);
+    }
+
+    public function testBuildPageObjectContainsAllRequiredV3Fields(): void
     {
         $page = $this->response->buildPageObject('Home', ['foo' => 'bar'], '/home', 'v1', false, false);
         self::assertSame('Home', $page['component']);
@@ -76,17 +99,17 @@ final class InertiaResponseTest extends TestCase
     // resolveProps()
     // -------------------------------------------------------------------------
 
-    public function testResolvePropsWithLazyPropSkipsOnFullRender(): void
+    public function testResolvePropsWithOptionalPropSkipsOnFullRender(): void
     {
-        $props = ['name' => new LazyProp(static fn () => 'Tony'), 'title' => 'Hello'];
+        $props = ['name' => new OptionalProp(static fn () => 'Tony'), 'title' => 'Hello'];
         $resolved = $this->response->resolveProps($props, [], [], [], false);
         self::assertArrayNotHasKey('name', $resolved);
         self::assertSame('Hello', $resolved['title']);
     }
 
-    public function testResolvePropsWithLazyPropResolvesOnPartialReload(): void
+    public function testResolvePropsWithOptionalPropResolvesOnPartialReload(): void
     {
-        $props = ['name' => new LazyProp(static fn () => 'Tony')];
+        $props = ['name' => new OptionalProp(static fn () => 'Tony')];
         $resolved = $this->response->resolveProps($props, ['name'], [], [], true);
         self::assertSame('Tony', $resolved['name']);
     }
@@ -213,8 +236,8 @@ final class InertiaResponseTest extends TestCase
         self::assertArrayHasKey('props', $data);
         self::assertArrayHasKey('url', $data);
         self::assertArrayHasKey('version', $data);
-        self::assertArrayHasKey('clearHistory', $data);
-        self::assertArrayHasKey('encryptHistory', $data);
+        self::assertArrayNotHasKey('clearHistory', $data);
+        self::assertArrayNotHasKey('encryptHistory', $data);
     }
 
     public function testBuildPropsAlwaysContainsErrorsDefaultWhenNotProvidedByController(): void
@@ -331,14 +354,14 @@ final class InertiaResponseTest extends TestCase
     }
 
     // -------------------------------------------------------------------------
-    // BUG 1 — LazyProp closure must NOT run when key is in $except
+    // BUG 1 — OptionalProp closure must NOT run when key is in $except
     // -------------------------------------------------------------------------
 
-    public function testResolvePropsLazyPropKeyInBothOnlyAndExceptClosureNotCalled(): void
+    public function testResolvePropsOptionalPropKeyInBothOnlyAndExceptClosureNotCalled(): void
     {
         $called = false;
         $props = [
-            'name' => new LazyProp(static function () use (&$called): string {
+            'name' => new OptionalProp(static function () use (&$called): string {
                 $called = true;
 
                 return 'Tony';
@@ -349,7 +372,7 @@ final class InertiaResponseTest extends TestCase
         // Both $only and $except contain 'name'; $except wins — closure must not run.
         $resolved = $this->response->resolveProps($props, ['name'], ['name'], [], true);
 
-        self::assertFalse($called, 'LazyProp closure must not be called when the key is in $except');
+        self::assertFalse($called, 'OptionalProp closure must not be called when the key is in $except');
         self::assertArrayNotHasKey('name', $resolved);
     }
 
@@ -452,14 +475,14 @@ final class InertiaResponseTest extends TestCase
     }
 
     // -------------------------------------------------------------------------
-    // BUG 4 — LazyProp must NOT be resolved when only $except is set (no $only)
+    // BUG 4 — OptionalProp must NOT be resolved when only $except is set (no $only)
     // -------------------------------------------------------------------------
 
-    public function testResolvePropsLazyPropExceptOnlyPartialReloadClosureNotCalled(): void
+    public function testResolvePropsOptionalPropExceptOnlyPartialReloadClosureNotCalled(): void
     {
         $called = false;
         $props = [
-            'lazy' => new LazyProp(static function () use (&$called): string {
+            'lazy' => new OptionalProp(static function () use (&$called): string {
                 $called = true;
 
                 return 'lazy-value';
@@ -467,10 +490,10 @@ final class InertiaResponseTest extends TestCase
             'eager' => 'value',
         ];
 
-        // Only $except is set, $only is empty — LazyProp must NOT be resolved.
+        // Only $except is set, $only is empty — OptionalProp must NOT be resolved.
         $resolved = $this->response->resolveProps($props, [], ['eager'], [], true);
 
-        self::assertFalse($called, 'LazyProp closure must not be called when only $except is set (no $only)');
+        self::assertFalse($called, 'OptionalProp closure must not be called when only $except is set (no $only)');
         self::assertArrayNotHasKey('lazy', $resolved);
     }
 

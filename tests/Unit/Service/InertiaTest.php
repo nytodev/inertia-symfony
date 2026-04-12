@@ -6,9 +6,9 @@ namespace Nytodev\InertiaBundle\Tests\Unit\Service;
 
 use Nytodev\InertiaBundle\Props\AlwaysProp;
 use Nytodev\InertiaBundle\Props\DeferProp;
-use Nytodev\InertiaBundle\Props\LazyProp;
 use Nytodev\InertiaBundle\Props\MergeProp;
 use Nytodev\InertiaBundle\Props\OnceProp;
+use Nytodev\InertiaBundle\Props\OptionalProp;
 use Nytodev\InertiaBundle\Props\ScrollProp;
 use Nytodev\InertiaBundle\Response\InertiaResponse;
 use Nytodev\InertiaBundle\Service\Inertia;
@@ -178,17 +178,6 @@ final class InertiaTest extends TestCase
         $service->render('Home', []);
     }
 
-    public function testLazyWithClosureReturnsLazyPropInstance(): void
-    {
-        $service = $this->makeService();
-        $callback = static fn () => 'lazy-value';
-
-        $result = $service->lazy($callback);
-
-        self::assertInstanceOf(LazyProp::class, $result);
-        self::assertSame('lazy-value', $result->resolve());
-    }
-
     public function testDeferWithClosureReturnsDeferPropWithDefaultGroup(): void
     {
         $service = $this->makeService();
@@ -297,11 +286,11 @@ final class InertiaTest extends TestCase
         $service->clearHistory();
         $service->render('Home', []);
 
-        // Second render — flag must be back to false
+        // Second render — flag must be absent (reset to false → omitted in v3)
         $response = $service->render('Home', []);
         $data = json_decode((string) $response->getContent(), true);
         self::assertIsArray($data);
-        self::assertFalse($data['clearHistory']);
+        self::assertArrayNotHasKey('clearHistory', $data);
     }
 
     public function testEncryptHistoryIsOneShotFlagResetAfterRender(): void
@@ -314,11 +303,11 @@ final class InertiaTest extends TestCase
         $service->encryptHistory();
         $service->render('Home', []);
 
-        // Second render — flag must be back to false
+        // Second render — flag must be absent (reset to false → omitted in v3)
         $response = $service->render('Home', []);
         $data = json_decode((string) $response->getContent(), true);
         self::assertIsArray($data);
-        self::assertFalse($data['encryptHistory']);
+        self::assertArrayNotHasKey('encryptHistory', $data);
     }
 
     public function testResetClearsBothHistoryFlags(): void
@@ -335,8 +324,8 @@ final class InertiaTest extends TestCase
         $response = $service->render('Home', []);
         $data = json_decode((string) $response->getContent(), true);
         self::assertIsArray($data);
-        self::assertFalse($data['clearHistory']);
-        self::assertFalse($data['encryptHistory']);
+        self::assertArrayNotHasKey('clearHistory', $data);
+        self::assertArrayNotHasKey('encryptHistory', $data);
     }
 
     public function testDefaultEncryptHistoryTrueProducesEncryptedResponseWithoutExplicitCall(): void
@@ -440,7 +429,7 @@ final class InertiaTest extends TestCase
         self::assertSame(2, $result->getNextPage());
     }
 
-    public function testFlashWithNoSessionStoresInMemoryAndAppearsInProps(): void
+    public function testFlashWithNoSessionStoresInMemoryAndAppearsAsTopLevelKey(): void
     {
         $request = new Request([], [], [], [], [], ['REQUEST_URI' => '/home']);
         $request->headers->set('X-Inertia', 'true');
@@ -452,7 +441,8 @@ final class InertiaTest extends TestCase
 
         $data = json_decode((string) $response->getContent(), true);
         self::assertIsArray($data);
-        self::assertSame('saved', $data['props']['flash']['status'] ?? null);
+        self::assertSame('saved', $data['flash']['status'] ?? null);
+        self::assertArrayNotHasKey('flash', $data['props']);
     }
 
     public function testShareOnceWithExistingOncePropPassesThroughUnchanged(): void
@@ -476,11 +466,11 @@ final class InertiaTest extends TestCase
         $service->location('/some-url');
     }
 
-    public function testOptionalWithClosureReturnsLazyPropInstance(): void
+    public function testOptionalWithClosureReturnsOptionalPropInstance(): void
     {
         $service = $this->makeService();
         $result = $service->optional(static fn () => 'optional-value');
-        self::assertInstanceOf(LazyProp::class, $result);
+        self::assertInstanceOf(OptionalProp::class, $result);
         self::assertSame('optional-value', $result->resolve());
     }
 
