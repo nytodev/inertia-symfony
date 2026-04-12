@@ -95,12 +95,27 @@ final class InertiaListener
         $request = $event->getRequest();
         $response = $event->getResponse();
 
+        // 302 → 303 conversion for PUT/PATCH/DELETE (must run first).
         if (
             $request->headers->has('X-Inertia')
             && 302 === $response->getStatusCode()
             && \in_array($request->getMethod(), ['PUT', 'PATCH', 'DELETE'], true)
         ) {
             $response->setStatusCode(303);
+        }
+
+        // X-Inertia-Redirect: intercept fragment redirects on Inertia XHR requests.
+        // Prefetch requests are excluded — they are speculative and the client does not
+        // commit to the navigation, so intercepting them would produce unexpected 409s.
+        if (
+            $request->headers->has('X-Inertia')
+            && 'prefetch' !== $request->headers->get('Purpose')
+            && $response->isRedirect()
+        ) {
+            $location = (string) $response->headers->get('Location', '');
+            if (str_contains($location, '#')) {
+                $event->setResponse(new Response('', 409, ['X-Inertia-Redirect' => $location]));
+            }
         }
     }
 }
