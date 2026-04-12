@@ -6,9 +6,9 @@ namespace Nytodev\InertiaBundle\Service;
 
 use Nytodev\InertiaBundle\Props\AlwaysProp;
 use Nytodev\InertiaBundle\Props\DeferProp;
-use Nytodev\InertiaBundle\Props\LazyProp;
 use Nytodev\InertiaBundle\Props\MergeProp;
 use Nytodev\InertiaBundle\Props\OnceProp;
+use Nytodev\InertiaBundle\Props\OptionalProp;
 use Nytodev\InertiaBundle\Props\ScrollProp;
 use Nytodev\InertiaBundle\Response\InertiaResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -44,11 +44,14 @@ final class Inertia implements ResetInterface
 
     private bool $encryptHistory = false;
 
+    private bool $preserveFragment = false;
+
     public function __construct(
         private readonly RequestStack $requestStack,
         private readonly InertiaResponse $inertiaResponse,
         private readonly ?string $version,
         private readonly bool $defaultEncryptHistory = false,
+        private readonly bool $exposeSharedPropKeys = true,
     ) {
         $this->encryptHistory = $defaultEncryptHistory;
     }
@@ -66,10 +69,10 @@ final class Inertia implements ResetInterface
 
         $mergedProps = array_merge($this->sharedProps, $props);
 
-        $clearHistory = $this->clearHistory;
+        $clearHistory = $this->consumeClearHistory($request);
         $encryptHistory = $this->encryptHistory;
-        $this->clearHistory = false;
         $this->encryptHistory = false;
+        $preserveFragment = $this->consumePreserveFragment($request);
 
         $flash = $this->consumeFlash($request);
 
@@ -81,6 +84,8 @@ final class Inertia implements ResetInterface
             $this->consumeErrors($request);
         }
 
+        $sharedPropKeys = $this->exposeSharedPropKeys ? array_keys($this->sharedProps) : [];
+
         return $this->inertiaResponse->build(
             $component,
             $mergedProps,
@@ -90,6 +95,8 @@ final class Inertia implements ResetInterface
             $clearHistory,
             $encryptHistory,
             $flash,
+            $sharedPropKeys,
+            $preserveFragment,
         );
     }
 
@@ -162,11 +169,18 @@ final class Inertia implements ResetInterface
      */
     public function reset(): void
     {
+        $request = $this->requestStack->getCurrentRequest();
+        if (null !== $request && $request->hasSession()) {
+            $request->getSession()->remove('inertia.clear_history');
+            $request->getSession()->remove('inertia.preserve_fragment');
+        }
+
         $this->sharedProps = [];
         $this->flashData = [];
         $this->errorsData = [];
         $this->clearHistory = false;
         $this->encryptHistory = $this->defaultEncryptHistory;
+        $this->preserveFragment = false;
     }
 
     /**
@@ -268,11 +282,39 @@ final class Inertia implements ResetInterface
 
     /**
      * Signal that the browser history entry for this response should be cleared.
-     * The flag is consumed on the next render() call and then reset to false.
+     * The flag is stored in the session so it survives a redirect (same as inertia-laravel).
+     * Falls back to an in-memory property when no session is available (e.g. unit tests).
      */
     public function clearHistory(): void
     {
+        $request = $this->requestStack->getCurrentRequest();
+        if (null !== $request && $request->hasSession()) {
+            $request->getSession()->set('inertia.clear_history', true);
+
+            return;
+        }
+
         $this->clearHistory = true;
+    }
+
+    /**
+     * Read and clear the clearHistory flag from the session (or in-memory fallback).
+     * Called exactly once per render() invocation.
+     */
+    private function consumeClearHistory(\Symfony\Component\HttpFoundation\Request $request): bool
+    {
+        if ($request->hasSession()) {
+            $session = $request->getSession();
+            $value = (bool) $session->get('inertia.clear_history', false);
+            $session->remove('inertia.clear_history');
+
+            return $value;
+        }
+
+        $value = $this->clearHistory;
+        $this->clearHistory = false;
+
+        return $value;
     }
 
     /**
@@ -284,19 +326,52 @@ final class Inertia implements ResetInterface
         $this->encryptHistory = true;
     }
 
+    /**
+     * Signal that the URL fragment should be preserved when the client navigates
+     * after a redirect. The flag is stored in the session so it survives a redirect
+     * (same pattern as clearHistory). Falls back to an in-memory property when no
+     * session is available.
+     */
+    public function preserveFragment(): void
+    {
+        $request = $this->requestStack->getCurrentRequest();
+        if (null !== $request && $request->hasSession()) {
+            $request->getSession()->set('inertia.preserve_fragment', true);
+
+            return;
+        }
+
+        $this->preserveFragment = true;
+    }
+
+    /**
+     * Read and clear the preserveFragment flag from the session (or in-memory fallback).
+     * Called exactly once per render() invocation.
+     */
+    private function consumePreserveFragment(\Symfony\Component\HttpFoundation\Request $request): bool
+    {
+        if ($request->hasSession()) {
+            $session = $request->getSession();
+            $value = (bool) $session->get('inertia.preserve_fragment', false);
+            $session->remove('inertia.preserve_fragment');
+
+            return $value;
+        }
+
+        $value = $this->preserveFragment;
+        $this->preserveFragment = false;
+
+        return $value;
+    }
+
     public function always(\Closure $callback): AlwaysProp
     {
         return new AlwaysProp($callback);
     }
 
-    public function lazy(\Closure $callback): LazyProp
+    public function optional(\Closure $callback): OptionalProp
     {
-        return new LazyProp($callback);
-    }
-
-    public function optional(\Closure $callback): LazyProp
-    {
-        return new LazyProp($callback);
+        return new OptionalProp($callback);
     }
 
     public function defer(\Closure $callback, string $group = 'default'): DeferProp

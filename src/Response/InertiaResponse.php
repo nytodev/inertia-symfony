@@ -6,9 +6,9 @@ namespace Nytodev\InertiaBundle\Response;
 
 use Nytodev\InertiaBundle\Props\AlwaysProp;
 use Nytodev\InertiaBundle\Props\DeferProp;
-use Nytodev\InertiaBundle\Props\LazyProp;
 use Nytodev\InertiaBundle\Props\MergeProp;
 use Nytodev\InertiaBundle\Props\OnceProp;
+use Nytodev\InertiaBundle\Props\OptionalProp;
 use Nytodev\InertiaBundle\Props\ScrollProp;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -32,7 +32,8 @@ final class InertiaResponse
      * Build and return an HTML or JSON response based on the request type.
      *
      * @param array<string, mixed> $props
-     * @param array<string, mixed> $flash flash data to merge into props (omitted when empty, matching inertia-laravel)
+     * @param array<string, mixed> $flash          flash data emitted as top-level page object key (omitted when empty, matching inertia-laravel)
+     * @param list<string>         $sharedPropKeys keys from Inertia::share(); emitted as top-level sharedProps when non-empty
      */
     public function build(
         string $component,
@@ -43,6 +44,8 @@ final class InertiaResponse
         bool $clearHistory = false,
         bool $encryptHistory = false,
         array $flash = [],
+        array $sharedPropKeys = [],
+        bool $preserveFragment = false,
     ): Response {
         $only = $this->parseCsv($request->headers->get('X-Inertia-Partial-Data') ?? '');
         $except = $this->parseCsv($request->headers->get('X-Inertia-Partial-Except') ?? '');
@@ -65,7 +68,7 @@ final class InertiaResponse
 
         $resolved = $this->resolveProps($props, $only, $except, $exceptOnce, $isPartial);
 
-        // Guarantee: errors must always be present, even if a DeferProp/LazyProp was passed as 'errors'.
+        // Guarantee: errors must always be present, even if a DeferProp/OptionalProp was passed as 'errors'.
         if (!\array_key_exists('errors', $resolved)) {
             $resolved['errors'] = [];
         }
@@ -102,18 +105,12 @@ final class InertiaResponse
                 ];
                 continue;
             }
-            if ($prop instanceof LazyProp && $prop->isOnce()) {
+            if ($prop instanceof OptionalProp && $prop->isOnce()) {
                 $oncePropsMeta[$key] = [
                     'prop' => $key,
                     'expiresAt' => null,
                 ];
             }
-        }
-
-        // Flash data belongs inside props (matching inertia-laravel behaviour).
-        // Omit the key entirely when empty so the page object stays clean.
-        if ([] !== $flash) {
-            $resolved['flash'] = $flash;
         }
 
         $page = $this->buildPageObject(
@@ -130,6 +127,9 @@ final class InertiaResponse
             $oncePropsMeta,
             $matchPropsOn,
             $scrollProps,
+            $sharedPropKeys,
+            $flash,
+            $preserveFragment,
         );
 
         if ($request->headers->has('X-Inertia')) {
@@ -146,7 +146,7 @@ final class InertiaResponse
 
     /**
      * Filter and resolve prop values according to partial reload headers.
-     * - LazyProp: skipped on full render, resolved on partial ONLY if explicitly in $only
+     * - OptionalProp: skipped on full render, resolved on partial ONLY if explicitly in $only
      * - DeferProp: always excluded (goes into deferredProps)
      * - OnceProp: resolved unless key is in X-Inertia-Except-Once-Props or in $except
      * - MergeProp: resolved (merge metadata is collected separately in build()).
@@ -193,10 +193,10 @@ final class InertiaResponse
                 continue;
             }
 
-            // LazyProp: skip on full render; on partial, include only if explicitly in $only.
-            // LazyProp::once(): also skip when client sends X-Inertia-Except-Once-Props for this key
+            // OptionalProp: skip on full render; on partial, include only if explicitly in $only.
+            // OptionalProp::once(): also skip when client sends X-Inertia-Except-Once-Props for this key
             // (client already has the cached value from a previous partial resolve).
-            if ($value instanceof LazyProp) {
+            if ($value instanceof OptionalProp) {
                 if (!$isPartial || [] === $only || !\in_array($key, $only, true)) {
                     continue;
                 }
@@ -433,10 +433,8 @@ final class InertiaResponse
     }
 
     /**
-     * Build the canonical v2 page object array.
-     * clearHistory and encryptHistory are ALWAYS present in v2, even if false.
-     *
-     * TODO: Inertia v3 — clearHistory/encryptHistory omitted if false
+     * Build the canonical v3 page object array.
+     * clearHistory and encryptHistory are omitted when false (v3 behaviour).
      *
      * @param array<string, mixed>                                 $resolvedProps
      * @param array<string, list<string>>                          $deferredProps  grouped deferred prop keys
@@ -446,6 +444,8 @@ final class InertiaResponse
      * @param array<string, array{prop: string, expiresAt: mixed}> $onceProps      once-prop metadata
      * @param list<string>                                         $matchPropsOn   "propKey.fieldKey" entries for dedup
      * @param array<string, array<string, mixed>>                  $scrollProps    pagination metadata keyed by prop name (includes reset flag)
+     * @param list<string>                                         $sharedPropKeys keys coming from Inertia::share(); emitted as top-level sharedProps when non-empty
+     * @param array<string, mixed>                                 $flash          flash data emitted as top-level key (omitted when empty, matching inertia-laravel)
      *
      * @return array<string, mixed>
      */
@@ -463,14 +463,19 @@ final class InertiaResponse
         array $onceProps = [],
         array $matchPropsOn = [],
         array $scrollProps = [],
+        array $sharedPropKeys = [],
+        array $flash = [],
+        bool $preserveFragment = false,
     ): array {
         $page = [
             'component' => $component,
             'props' => $resolvedProps,
             'url' => $url,
             'version' => $version,
-            'clearHistory' => $clearHistory,      // TODO: Inertia v3 — omit if false
-            'encryptHistory' => $encryptHistory,  // TODO: Inertia v3 — omit if false
+            // v3: omitted when false, only present when true
+            ...($clearHistory ? ['clearHistory' => true] : []),
+            ...($encryptHistory ? ['encryptHistory' => true] : []),
+            ...($preserveFragment ? ['preserveFragment' => true] : []),
         ];
 
         if ([] !== $deferredProps) {
@@ -499,6 +504,14 @@ final class InertiaResponse
 
         if ([] !== $scrollProps) {
             $page['scrollProps'] = $scrollProps;
+        }
+
+        if ([] !== $sharedPropKeys) {
+            $page['sharedProps'] = $sharedPropKeys;
+        }
+
+        if ([] !== $flash) {
+            $page['flash'] = $flash;
         }
 
         return $page;
