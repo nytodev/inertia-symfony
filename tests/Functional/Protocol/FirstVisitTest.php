@@ -56,7 +56,7 @@ final class FirstVisitTest extends FunctionalTestCase
         self::assertStringNotContainsString('</script>', $m[1] ?? '');
     }
 
-    public function testFirstVisitPageObjectContainsAllRequiredV2Fields(): void
+    public function testFirstVisitPageObjectContainsAllRequiredV3Fields(): void
     {
         $this->client->request('GET', '/test');
         $page = $this->extractPageObject();
@@ -64,22 +64,20 @@ final class FirstVisitTest extends FunctionalTestCase
         self::assertArrayHasKey('props', $page);
         self::assertArrayHasKey('url', $page);
         self::assertArrayHasKey('version', $page);
-        self::assertArrayHasKey('clearHistory', $page);
-        self::assertArrayHasKey('encryptHistory', $page);
     }
 
-    public function testFirstVisitClearHistoryAlwaysPresentInV2(): void
+    public function testFirstVisitClearHistoryAbsentWhenFalseInV3(): void
     {
         $this->client->request('GET', '/test');
         $page = $this->extractPageObject();
-        self::assertFalse($page['clearHistory']);
+        self::assertArrayNotHasKey('clearHistory', $page);
     }
 
-    public function testFirstVisitEncryptHistoryAlwaysPresentInV2(): void
+    public function testFirstVisitEncryptHistoryAbsentWhenFalseInV3(): void
     {
         $this->client->request('GET', '/test');
         $page = $this->extractPageObject();
-        self::assertFalse($page['encryptHistory']);
+        self::assertArrayNotHasKey('encryptHistory', $page);
     }
 
     /**

@@ -45,7 +45,7 @@ final class XhrVisitTest extends FunctionalTestCase
         self::assertStringContainsString('application/json', (string) $this->client->getResponse()->headers->get('Content-Type'));
     }
 
-    public function testXhrVisitPageObjectContainsAllRequiredV2Fields(): void
+    public function testXhrVisitPageObjectContainsAllRequiredV3Fields(): void
     {
         $this->client->request('GET', '/test', [], [], ['HTTP_X_INERTIA' => 'true']);
         $data = json_decode((string) $this->client->getResponse()->getContent(), true);
@@ -54,8 +54,8 @@ final class XhrVisitTest extends FunctionalTestCase
         self::assertArrayHasKey('props', $data);
         self::assertArrayHasKey('url', $data);
         self::assertArrayHasKey('version', $data);
-        self::assertArrayHasKey('clearHistory', $data);
-        self::assertArrayHasKey('encryptHistory', $data);
+        self::assertArrayNotHasKey('clearHistory', $data);
+        self::assertArrayNotHasKey('encryptHistory', $data);
     }
 
     public function testXhrVisitComponentMatchesRenderedComponent(): void

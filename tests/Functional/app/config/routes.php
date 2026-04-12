@@ -18,8 +18,8 @@ return static function (RoutingConfigurator $routes): void {
     $routes->add('test_inertia_partial', '/test/partial')
         ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'partial']);
 
-    $routes->add('test_inertia_lazy', '/test/lazy')
-        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'lazy']);
+    $routes->add('test_inertia_optional', '/test/optional')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'optional']);
 
     $routes->add('test_inertia_merge', '/test/merge')
         ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'merge']);
@@ -36,8 +36,21 @@ return static function (RoutingConfigurator $routes): void {
     $routes->add('test_inertia_clear_history', '/test/clear-history')
         ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'clearHistory']);
 
+    $routes->add('test_inertia_clear_history_redirect', '/test/clear-history-redirect')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'clearHistoryRedirect']);
+
     $routes->add('test_inertia_encrypt_history', '/test/encrypt-history')
         ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'encryptHistory']);
+
+    $routes->add('test_inertia_preserve_fragment', '/test/preserve-fragment')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'preserveFragment']);
+
+    $routes->add('test_inertia_preserve_fragment_redirect', '/test/preserve-fragment-redirect')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'preserveFragmentRedirect']);
+
+    $routes->add('test_inertia_redirect_with_fragment', '/test/redirect-with-fragment')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'redirectWithFragment'])
+        ->methods(['PUT']);
 
     $routes->add('test_inertia_match_props_on', '/test/match-props-on')
         ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'matchPropsOn']);
@@ -127,4 +140,10 @@ return static function (RoutingConfigurator $routes): void {
 
     $routes->add('test_optional_once', '/test/optional-once')
         ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'optionalOnce']);
+
+    $routes->add('test_shared_props_emit', '/test/shared-props-emit')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'sharedPropsEmit']);
+
+    $routes->add('test_shared_props_empty', '/test/shared-props-empty')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'sharedPropsEmpty']);
 };

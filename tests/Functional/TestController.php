@@ -6,9 +6,9 @@ namespace Nytodev\InertiaBundle\Tests\Functional;
 
 use Nytodev\InertiaBundle\Props\AlwaysProp;
 use Nytodev\InertiaBundle\Props\DeferProp;
-use Nytodev\InertiaBundle\Props\LazyProp;
 use Nytodev\InertiaBundle\Props\MergeProp;
 use Nytodev\InertiaBundle\Props\OnceProp;
+use Nytodev\InertiaBundle\Props\OptionalProp;
 use Nytodev\InertiaBundle\Props\ScrollProp;
 use Nytodev\InertiaBundle\Service\Inertia;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -44,11 +44,11 @@ final class TestController
         ]);
     }
 
-    public function lazy(): Response
+    public function optional(): Response
     {
         return $this->inertia->render('TestComponent', [
             'eager' => 'value',
-            'lazy' => new LazyProp(static fn () => 'lazy-value'),
+            'lazy' => new OptionalProp(static fn () => 'lazy-value'),
             'errors' => [],
         ]);
     }
@@ -114,11 +114,37 @@ final class TestController
         return $this->inertia->render('TestComponent', ['foo' => 'bar']);
     }
 
+    public function clearHistoryRedirect(): Response
+    {
+        $this->inertia->clearHistory();
+
+        return new RedirectResponse('/test', 302);
+    }
+
     public function encryptHistory(): Response
     {
         $this->inertia->encryptHistory();
 
         return $this->inertia->render('TestComponent', ['foo' => 'bar']);
+    }
+
+    public function preserveFragment(): Response
+    {
+        $this->inertia->preserveFragment();
+
+        return $this->inertia->render('TestComponent', ['foo' => 'bar']);
+    }
+
+    public function preserveFragmentRedirect(): Response
+    {
+        $this->inertia->preserveFragment();
+
+        return new RedirectResponse('/test', 302);
+    }
+
+    public function redirectWithFragment(): Response
+    {
+        return new RedirectResponse('/test#section', 302);
     }
 
     public function scrollProps(): Response
@@ -306,5 +332,18 @@ final class TestController
             'eager' => 'eager-value',
             'permissions' => $this->inertia->optional(static fn () => ['read', 'write'])->once(),
         ]);
+    }
+
+    public function sharedPropsEmit(): Response
+    {
+        $this->inertia->share('auth', ['user' => 'Alice']);
+        $this->inertia->share('appName', 'MyApp');
+
+        return $this->inertia->render('TestComponent', ['local' => 'value']);
+    }
+
+    public function sharedPropsEmpty(): Response
+    {
+        return $this->inertia->render('TestComponent', ['local' => 'value']);
     }
 }
