@@ -61,9 +61,9 @@ final class PartialReloadTest extends FunctionalTestCase
         self::assertArrayHasKey('errors', $data['props']);
     }
 
-    public function testPartialReloadLazyPropResolvedWhenRequested(): void
+    public function testPartialReloadOptionalPropResolvedWhenRequested(): void
     {
-        $this->client->request('GET', '/test/lazy', [], [], [
+        $this->client->request('GET', '/test/optional', [], [], [
             'HTTP_X_INERTIA' => 'true',
             'HTTP_X_INERTIA_PARTIAL_DATA' => 'lazy',
             'HTTP_X_INERTIA_PARTIAL_COMPONENT' => 'TestComponent',
@@ -76,9 +76,9 @@ final class PartialReloadTest extends FunctionalTestCase
         self::assertSame('lazy-value', $data['props']['lazy']);
     }
 
-    public function testPartialReloadLazyPropSkippedWhenNotRequested(): void
+    public function testPartialReloadOptionalPropSkippedWhenNotRequested(): void
     {
-        $this->client->request('GET', '/test/lazy', [], [], [
+        $this->client->request('GET', '/test/optional', [], [], [
             'HTTP_X_INERTIA' => 'true',
             'HTTP_X_INERTIA_PARTIAL_COMPONENT' => 'TestComponent',
         ]);
@@ -122,14 +122,14 @@ final class PartialReloadTest extends FunctionalTestCase
     }
 
     // -------------------------------------------------------------------------
-    // BUG 4 — LazyProp must NOT be resolved when only X-Inertia-Partial-Except is set
+    // BUG 4 — OptionalProp must NOT be resolved when only X-Inertia-Partial-Except is set
     // -------------------------------------------------------------------------
 
-    public function testPartialReloadLazyPropExceptOnlyHeaderLazyPropNotResolved(): void
+    public function testPartialReloadOptionalPropExceptOnlyHeaderOptionalPropNotResolved(): void
     {
         // Only X-Inertia-Partial-Except is sent (no X-Inertia-Partial-Data).
-        // LazyProp must NOT appear because it was never explicitly requested via $only.
-        $this->client->request('GET', '/test/lazy', [], [], [
+        // OptionalProp must NOT appear because it was never explicitly requested via $only.
+        $this->client->request('GET', '/test/optional', [], [], [
             'HTTP_X_INERTIA' => 'true',
             'HTTP_X_INERTIA_PARTIAL_EXCEPT' => 'eager',
             'HTTP_X_INERTIA_PARTIAL_COMPONENT' => 'TestComponent',

@@ -12,7 +12,7 @@ namespace Nytodev\InertiaBundle\Props;
  * partial resolve the client caches the value and sends X-Inertia-Except-Once-Props
  * on subsequent visits, so the server skips resolution entirely.
  */
-final class LazyProp
+final class OptionalProp
 {
     private bool $once = false;
 
