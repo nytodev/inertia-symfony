@@ -61,7 +61,7 @@ final class Inertia implements ResetInterface
      * and returns either an HTML or JSON response based on the request headers.
      *
      * @param \BackedEnum|\UnitEnum|string $component Component name or enum resolving to a string
-     * @param array<string, mixed> $props
+     * @param array<string, mixed>         $props
      */
     public function render(\BackedEnum|\UnitEnum|string $component, array $props = []): Response
     {
