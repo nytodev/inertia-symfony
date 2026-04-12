@@ -1,6 +1,6 @@
 {
     "name": "nytodev/inertia-bundle",
-    "description": "Symfony Bundle implementing the Inertia.js v2 server-side protocol",
+    "description": "Symfony Bundle implementing the Inertia.js v3 server-side protocol",
     "type": "symfony-bundle",
     "keywords": ["symfony", "inertia", "inertiajs", "bundle", "spa", "react", "vue", "svelte"],
     "homepage": "https://github.com/nytodev/inertia-bundle",
