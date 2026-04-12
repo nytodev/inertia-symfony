@@ -60,10 +60,21 @@ final class Inertia implements ResetInterface
      * Render an Inertia component. Merges shared props with the given props
      * and returns either an HTML or JSON response based on the request headers.
      *
+     * @param \BackedEnum|\UnitEnum|string $component Component name or enum resolving to a string
      * @param array<string, mixed> $props
      */
-    public function render(string $component, array $props = []): Response
+    public function render(\BackedEnum|\UnitEnum|string $component, array $props = []): Response
     {
+        $component = match (true) {
+            $component instanceof \BackedEnum => $component->value,
+            $component instanceof \UnitEnum => $component->name,
+            default => $component,
+        };
+
+        if (!\is_string($component)) {
+            throw new \InvalidArgumentException('Component name must resolve to a string (int-backed enums are not supported).');
+        }
+
         $request = $this->requestStack->getCurrentRequest()
             ?? throw new \LogicException('No current request.');
 
