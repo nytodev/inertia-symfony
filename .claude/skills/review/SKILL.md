@@ -1,7 +1,7 @@
 ---
 name: review
-description: Run a complete code review of the Inertia bundle. Checks protocol compliance, Symfony bundle conventions, PHP quality, and tests.
-allowed-tools: Bash(vendor/bin/phpunit:*), Bash(vendor/bin/phpstan:*), Bash(vendor/bin/php-cs-fixer:*), Read, Bash(find:*)
+description: Run a complete code review of the Inertia bundle. Checks protocol compliance and Symfony bundle conventions via static analysis (no automated tools).
+allowed-tools: Read, Grep, Glob
 ---
 
 # Bundle Review — symfony-inertia-bundle
@@ -20,24 +20,6 @@ Use agent `bundle-reviewer` on:
 - `config/definition.php`
 - `config/services.yaml`
 - `composer.json`
-
-## 3. Automated checks
-```bash
-# Tests
-vendor/bin/phpunit --testdox
-
-# PHPStan
-vendor/bin/phpstan analyse src/ tests/ --level=8 --no-progress
-
-# CS Fixer
-vendor/bin/php-cs-fixer fix --dry-run --diff src/ tests/
-```
-
-## 4. Coverage check
-```bash
-vendor/bin/phpunit --coverage-text | grep "Lines:" | head -5
-```
-Minimum: 95%
 
 ## Known acceptable exceptions (do NOT flag these as violations)
 
@@ -65,10 +47,6 @@ reflash block, it will be silently lost on the 409 hard-reload cycle.
 ## Report Format
 Summarize findings as:
 - ✅ Protocol compliance: X/Y checks passed
-- ✅ Bundle conventions: X/Y checks passed  
-- ✅ Tests: X passed, 0 failed
-- ✅ PHPStan: 0 errors
-- ✅ CS Fixer: clean
-- ✅ Coverage: XX%
+- ✅ Bundle conventions: X/Y checks passed
 
 List all issues with file:line references and suggested fixes.
