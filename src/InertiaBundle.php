@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nytodev\InertiaBundle;
 
+use Nytodev\InertiaBundle\Ssr\BundleDetector;
 use Nytodev\InertiaBundle\Ssr\HttpSsrGateway;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -47,18 +48,29 @@ final class InertiaBundle extends AbstractBundle
         $services->get('inertia.service')
             ->arg('$version', $config['version'])
             ->arg('$defaultEncryptHistory', $config['encrypt_history'])
-            ->arg('$exposeSharedPropKeys', $config['expose_shared_prop_keys']);
+            ->arg('$exposeSharedPropKeys', $config['expose_shared_prop_keys'])
+            ->arg('$ensurePagesExist', $config['pages']['ensure_pages_exist'])
+            ->arg('$pagePaths', $config['pages']['paths'])
+            ->arg('$pageExtensions', $config['pages']['extensions']);
+
+        // BundleDetector is always registered: used by StartSsrCommand and HttpSsrGateway.
+        $services->get('inertia.ssr_bundle_detector')
+            ->arg('$ssrBundle', $config['ssr_bundle'])
+            ->arg('$projectDir', '%kernel.project_dir%');
 
         // start-ssr: always available (spawns a Node process, no HTTP client needed).
-        $services->get('inertia.command.start_ssr')
-            ->arg('$ssrBundle', $config['ssr_bundle']);
+        // BundleDetector is injected — already configured above with ssr_bundle + project_dir.
 
         if ($config['ssr_enabled']) {
-            // Replace NullSsrGateway with the real HTTP gateway.
+            // Replace NullSsrGateway with the real HTTP gateway, wired with all dependencies.
             $services->get('inertia.ssr_gateway')
                 ->class(HttpSsrGateway::class)
                 ->arg('$httpClient', service('http_client'))
-                ->arg('$ssrUrl', $config['ssr_url']);
+                ->arg('$ssrUrl', $config['ssr_url'])
+                ->arg('$dispatcher', service('event_dispatcher'))
+                ->arg('$bundleDetector', service('inertia.ssr_bundle_detector'))
+                ->arg('$throwOnError', $config['ssr_throw_on_error'])
+                ->arg('$requestStack', service('request_stack'));
 
             // stop-ssr and check-ssr need symfony/http-client — only wire when SSR is enabled.
             $services->get('inertia.command.stop_ssr')

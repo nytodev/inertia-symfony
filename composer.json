@@ -24,7 +24,7 @@
         "twig/twig": "^3.0"
     },
     "suggest": {
-        "symfony/http-client": "Required when ssr_enabled is true (SSR server communication)"
+        "symfony/http-client": "Needed when ssr_enabled is true — provides the http_client service used by HttpSsrGateway."
     },
     "require-dev": {
         "phpunit/phpunit": "^10.5 || ^11.0",

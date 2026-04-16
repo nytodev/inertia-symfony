@@ -5,13 +5,37 @@ services:
         autoconfigure: false
 
     # -------------------------------------------------------------------------
+    # SSR Bundle Detector: resolves the path to the Node.js SSR bundle file.
+    # Checks the configured ssr_bundle path first, then falls back to common
+    # locations (bootstrap/ssr/ssr.mjs, public/build/ssr/ssr.mjs, etc.).
+    # $ssrBundle and $projectDir are injected at compile time via loadExtension().
+    # -------------------------------------------------------------------------
+    inertia.ssr_bundle_detector:
+        class: Nytodev\InertiaBundle\Ssr\BundleDetector
+        public: false
+
+    # -------------------------------------------------------------------------
     # SSR Gateway: NullSsrGateway by default (SSR disabled).
     # InertiaBundle::loadExtension() overrides this with HttpSsrGateway when
-    # ssr_enabled: true, injecting the configured ssrUrl.
+    # ssr_enabled: true, injecting the configured ssrUrl and related services.
     # -------------------------------------------------------------------------
     inertia.ssr_gateway:
         class: Nytodev\InertiaBundle\Ssr\NullSsrGateway
         public: false
+
+    # -------------------------------------------------------------------------
+    # SSR State: request-scoped cache for the SSR dispatch result.
+    # Ensures the gateway is called at most once per request even when both
+    # inertia() and inertiaHead() Twig functions are invoked.
+    # Cleared between FrankenPHP/ReactPHP requests via kernel.reset.
+    # -------------------------------------------------------------------------
+    inertia.ssr_state:
+        class: Nytodev\InertiaBundle\Ssr\SsrState
+        public: false
+        arguments:
+            $gateway: '@inertia.ssr_gateway'
+        tags:
+            - { name: kernel.reset, method: reset }
 
     # -------------------------------------------------------------------------
     # Response builder: constructs the Inertia page object and returns
@@ -51,18 +75,27 @@ services:
             - { name: kernel.event_listener, event: kernel.response, method: onKernelResponse, priority: 0 }
 
     # -------------------------------------------------------------------------
+    # Exception listener: kernel.exception — delegates to handleExceptionsUsing() callback.
+    # -------------------------------------------------------------------------
+    inertia.exception_listener:
+        class: Nytodev\InertiaBundle\EventListener\InertiaExceptionListener
+        public: false
+        arguments:
+            $inertia: '@inertia.service'
+        tags:
+            - { name: kernel.event_listener, event: kernel.exception, method: onKernelException, priority: 0 }
+
+    # -------------------------------------------------------------------------
     # Twig extension: inertia(page) and inertiaHead(page) template functions.
-    # Dispatches the SSR gateway once per request; reset() clears the cache
-    # between requests in FrankenPHP/ReactPHP persistent workers.
+    # Delegates dispatch caching to SsrState (reset via kernel.reset on SsrState).
     # -------------------------------------------------------------------------
     inertia.twig_extension:
         class: Nytodev\InertiaBundle\Twig\InertiaTwigExtension
         public: false
         arguments:
-            $ssrGateway: '@inertia.ssr_gateway'
+            $ssrState: '@inertia.ssr_state'
         tags:
             - { name: twig.extension }
-            - { name: kernel.reset, method: reset }
 
     # -------------------------------------------------------------------------
     # Console commands: SSR server management.
@@ -71,6 +104,8 @@ services:
     inertia.command.start_ssr:
         class: Nytodev\InertiaBundle\Command\StartSsrCommand
         public: false
+        arguments:
+            $bundleDetector: '@inertia.ssr_bundle_detector'
         tags:
             - { name: console.command }
 
