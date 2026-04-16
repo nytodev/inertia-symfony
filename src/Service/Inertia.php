@@ -46,12 +46,22 @@ final class Inertia implements ResetInterface
 
     private bool $preserveFragment = false;
 
+    /** @var callable|null */
+    private $exceptionCallback;
+
+    /**
+     * @param string[] $pagePaths
+     * @param string[] $pageExtensions
+     */
     public function __construct(
         private readonly RequestStack $requestStack,
         private readonly InertiaResponse $inertiaResponse,
         private readonly ?string $version,
         private readonly bool $defaultEncryptHistory = false,
         private readonly bool $exposeSharedPropKeys = true,
+        private readonly bool $ensurePagesExist = false,
+        private readonly array $pagePaths = [],
+        private readonly array $pageExtensions = ['vue', 'jsx', 'tsx', 'js', 'ts', 'svelte'],
     ) {
         $this->encryptHistory = $defaultEncryptHistory;
     }
@@ -75,6 +85,10 @@ final class Inertia implements ResetInterface
             throw new \InvalidArgumentException('Component name must resolve to a string (int-backed enums are not supported).');
         }
 
+        if ($this->ensurePagesExist && [] !== $this->pagePaths) {
+            $this->findComponentOrFail($component);
+        }
+
         $request = $this->requestStack->getCurrentRequest()
             ?? throw new \LogicException('No current request.');
 
@@ -82,7 +96,7 @@ final class Inertia implements ResetInterface
 
         $clearHistory = $this->consumeClearHistory($request);
         $encryptHistory = $this->encryptHistory;
-        $this->encryptHistory = false;
+        $this->encryptHistory = $this->defaultEncryptHistory;
         $preserveFragment = $this->consumePreserveFragment($request);
 
         $flash = $this->consumeFlash($request);
@@ -140,6 +154,25 @@ final class Inertia implements ResetInterface
     }
 
     /**
+     * Register a callback to handle exceptions for Inertia requests.
+     * The callback receives an ExceptionResponse and may call render() on it
+     * to replace the default error page with an Inertia component.
+     *
+     * Must be called at boot time (e.g. kernel listener, bundle config) — not per request.
+     * In FrankenPHP worker mode, this callback is shared across all requests for the
+     * worker's lifetime; a per-request call would leak into subsequent requests.
+     */
+    public function handleExceptionsUsing(callable $callback): void
+    {
+        $this->exceptionCallback = $callback;
+    }
+
+    public function getExceptionCallback(): ?callable
+    {
+        return $this->exceptionCallback;
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function getSharedProps(): array
@@ -192,6 +225,7 @@ final class Inertia implements ResetInterface
         $this->clearHistory = false;
         $this->encryptHistory = $this->defaultEncryptHistory;
         $this->preserveFragment = false;
+        // Note: exceptionCallback is boot-time configuration — not reset between requests.
     }
 
     /**
@@ -433,6 +467,25 @@ final class Inertia implements ResetInterface
         }
 
         return new RedirectResponse($url, 302);
+    }
+
+    /**
+     * Validate that a component file exists on disk relative to configured paths × extensions.
+     * Throws InvalidArgumentException if no matching file is found.
+     */
+    private function findComponentOrFail(string $component): void
+    {
+        $normalized = str_replace('\\', '/', $component);
+
+        foreach ($this->pagePaths as $path) {
+            foreach ($this->pageExtensions as $ext) {
+                if (file_exists($path.'/'.$normalized.'.'.$ext)) {
+                    return;
+                }
+            }
+        }
+
+        throw new \InvalidArgumentException("Inertia page component [{$component}] not found.");
     }
 
     public function scroll(
