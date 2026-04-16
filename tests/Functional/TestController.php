@@ -13,6 +13,7 @@ use Nytodev\InertiaBundle\Props\ScrollProp;
 use Nytodev\InertiaBundle\Service\Inertia;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 final class TestController
 {
@@ -345,5 +346,15 @@ final class TestController
     public function sharedPropsEmpty(): Response
     {
         return $this->inertia->render('TestComponent', ['local' => 'value']);
+    }
+
+    public function throwNotFound(): Response
+    {
+        throw new NotFoundHttpException('Page not found');
+    }
+
+    public function throwServerError(): Response
+    {
+        throw new \RuntimeException('Internal server error');
     }
 }

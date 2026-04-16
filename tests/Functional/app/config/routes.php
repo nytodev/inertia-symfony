@@ -146,4 +146,10 @@ return static function (RoutingConfigurator $routes): void {
 
     $routes->add('test_shared_props_empty', '/test/shared-props-empty')
         ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'sharedPropsEmpty']);
+
+    $routes->add('test_throw_not_found', '/test/throw-not-found')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'throwNotFound']);
+
+    $routes->add('test_throw_server_error', '/test/throw-server-error')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'throwServerError']);
 };

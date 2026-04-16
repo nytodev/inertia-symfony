@@ -7,6 +7,7 @@ namespace Nytodev\InertiaBundle\Tests\Unit\Twig;
 use Nytodev\InertiaBundle\Ssr\NullSsrGateway;
 use Nytodev\InertiaBundle\Ssr\SsrGatewayInterface;
 use Nytodev\InertiaBundle\Ssr\SsrResponse;
+use Nytodev\InertiaBundle\Ssr\SsrState;
 use Nytodev\InertiaBundle\Twig\InertiaTwigExtension;
 use PHPUnit\Framework\TestCase;
 
@@ -17,7 +18,7 @@ final class InertiaTwigExtensionTest extends TestCase
 
     private function makeExt(?SsrGatewayInterface $gateway = null): InertiaTwigExtension
     {
-        return new InertiaTwigExtension($gateway ?? new NullSsrGateway());
+        return new InertiaTwigExtension(new SsrState($gateway ?? new NullSsrGateway()));
     }
 
     // -------------------------------------------------------------------------
@@ -109,23 +110,6 @@ final class InertiaTwigExtensionTest extends TestCase
         $gateway->method('dispatch')->willReturn(null);
 
         self::assertSame('', $this->makeExt($gateway)->renderInertiaHead($this->page));
-    }
-
-    // -------------------------------------------------------------------------
-    // Reset (FrankenPHP / persistent workers)
-    // -------------------------------------------------------------------------
-
-    public function testResetClearsCachedSsrResponse(): void
-    {
-        $gateway = $this->createMock(SsrGatewayInterface::class);
-        $gateway->expects(self::exactly(2))
-            ->method('dispatch')
-            ->willReturn(new SsrResponse('<title>T</title>', '<div id="app"></div>'));
-
-        $ext = $this->makeExt($gateway);
-        $ext->renderInertia($this->page); // dispatch #1
-        $ext->reset();
-        $ext->renderInertia($this->page); // dispatch #2 — cache was cleared
     }
 
     // -------------------------------------------------------------------------

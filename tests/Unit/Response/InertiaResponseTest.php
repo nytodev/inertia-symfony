@@ -11,6 +11,8 @@ use Nytodev\InertiaBundle\Props\OnceProp;
 use Nytodev\InertiaBundle\Props\OptionalProp;
 use Nytodev\InertiaBundle\Props\ScrollProp;
 use Nytodev\InertiaBundle\Response\InertiaResponse;
+use Nytodev\InertiaBundle\Ssr\NullSsrGateway;
+use Nytodev\InertiaBundle\Ssr\SsrState;
 use Nytodev\InertiaBundle\Twig\InertiaTwigExtension;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
@@ -26,7 +28,7 @@ final class InertiaResponseTest extends TestCase
         $twig = new Environment(new ArrayLoader([
             'base.html.twig' => '<body>{{ inertia(page) }}</body>',
         ]));
-        $twig->addExtension(new InertiaTwigExtension(new \Nytodev\InertiaBundle\Ssr\NullSsrGateway()));
+        $twig->addExtension(new InertiaTwigExtension(new SsrState(new NullSsrGateway())));
         $this->response = new InertiaResponse($twig, 'base.html.twig');
     }
 
