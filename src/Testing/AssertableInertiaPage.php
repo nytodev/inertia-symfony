@@ -23,9 +23,34 @@ use Symfony\Component\HttpFoundation\Response;
  */
 final class AssertableInertiaPage
 {
+    /** @var string[] */
+    private static array $paths = [];
+
+    /** @var string[] */
+    private static array $extensions = ['vue', 'jsx', 'tsx', 'js', 'ts', 'svelte'];
+
+    private static bool $ensureExists = false;
+
     /** @param array<string, mixed> $page */
     private function __construct(private readonly array $page)
     {
+    }
+
+    /**
+     * Configure the static file-existence check for component() assertions.
+     * Call this in your test setUp() before asserting components.
+     *
+     * @param string[] $paths      Directories to scan for component files
+     * @param string[] $extensions File extensions to look for (default: vue, jsx, tsx, js, ts, svelte)
+     */
+    public static function configure(
+        array $paths = [],
+        array $extensions = ['vue', 'jsx', 'tsx', 'js', 'ts', 'svelte'],
+        bool $ensureExists = false,
+    ): void {
+        self::$paths = $paths;
+        self::$extensions = $extensions;
+        self::$ensureExists = $ensureExists;
     }
 
     /**
@@ -60,8 +85,13 @@ final class AssertableInertiaPage
 
     /**
      * Asserts the Inertia component name.
+     *
+     * @param bool|null $shouldExist Override the static configure() setting:
+     *                               true  = always validate file existence
+     *                               false = always skip file existence check
+     *                               null  = use configure() setting (default)
      */
-    public function component(string $expected): static
+    public function component(string $expected, ?bool $shouldExist = null): static
     {
         Assert::assertSame(
             $expected,
@@ -69,7 +99,31 @@ final class AssertableInertiaPage
             "Inertia component [{$expected}] does not match actual [{$this->page['component']}].",
         );
 
+        $check = $shouldExist ?? self::$ensureExists;
+
+        if ($check && [] !== self::$paths) {
+            $this->assertComponentFileExists($expected);
+        }
+
         return $this;
+    }
+
+    /**
+     * Asserts the component file exists on disk relative to configured paths × extensions.
+     */
+    private function assertComponentFileExists(string $component): void
+    {
+        $normalized = str_replace('\\', '/', $component);
+
+        foreach (self::$paths as $path) {
+            foreach (self::$extensions as $ext) {
+                if (file_exists($path.'/'.$normalized.'.'.$ext)) {
+                    return;
+                }
+            }
+        }
+
+        Assert::fail(\sprintf('Inertia page component file [%s] does not exist.', $component));
     }
 
     /**
