@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace Nytodev\InertiaBundle\Twig;
 
-use Nytodev\InertiaBundle\Ssr\SsrGatewayInterface;
-use Nytodev\InertiaBundle\Ssr\SsrResponse;
-use Symfony\Contracts\Service\ResetInterface;
+use Nytodev\InertiaBundle\Ssr\SsrState;
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFunction;
 
@@ -15,18 +13,13 @@ use Twig\TwigFunction;
  *   {{ inertia(page) }}      → SSR body, or <script type="application/json"> + <div id="app"> as fallback
  *   {{ inertiaHead(page) }}  → SSR head content (empty string when SSR disabled)
  *
- * The SSR gateway is called at most once per request; the result is cached until reset().
- * reset() is called automatically between requests in FrankenPHP/ReactPHP workers
- * via the kernel.reset container tag.
+ * Delegates dispatch caching to SsrState (tagged kernel.reset) so the gateway
+ * is called at most once per request even when both functions are invoked.
  */
-final class InertiaTwigExtension extends AbstractExtension implements ResetInterface
+final class InertiaTwigExtension extends AbstractExtension
 {
-    private bool $ssrDispatched = false;
-
-    private ?SsrResponse $ssrResponse = null;
-
     public function __construct(
-        private readonly SsrGatewayInterface $ssrGateway,
+        private readonly SsrState $ssrState,
     ) {
     }
 
@@ -58,15 +51,16 @@ final class InertiaTwigExtension extends AbstractExtension implements ResetInter
      */
     public function renderInertia(array $page): string
     {
-        $this->dispatchOnce($page);
+        $this->ssrState->setPage($page);
+        $response = $this->ssrState->dispatch();
 
-        if (null !== $this->ssrResponse) {
-            return $this->ssrResponse->body;
+        if (null !== $response) {
+            return $response->body;
         }
 
         $json = json_encode($page, \JSON_HEX_TAG | \JSON_THROW_ON_ERROR);
 
-        return '<script data-page="app" type="application/json">'.$json.'</script><div id="app"></div>';
+        return '<script data-page="app" type="application/json">'.$json.'</script>'."\n".'<div id="app"></div>';
     }
 
     /**
@@ -77,31 +71,9 @@ final class InertiaTwigExtension extends AbstractExtension implements ResetInter
      */
     public function renderInertiaHead(array $page): string
     {
-        $this->dispatchOnce($page);
+        $this->ssrState->setPage($page);
+        $response = $this->ssrState->dispatch();
 
-        return null !== $this->ssrResponse ? $this->ssrResponse->head : '';
-    }
-
-    /**
-     * Reset SSR state between requests (FrankenPHP / persistent workers).
-     * Tagged with kernel.reset in services.yaml.
-     */
-    public function reset(): void
-    {
-        $this->ssrDispatched = false;
-        $this->ssrResponse = null;
-    }
-
-    /**
-     * @param array<string, mixed> $page
-     */
-    private function dispatchOnce(array $page): void
-    {
-        if ($this->ssrDispatched) {
-            return;
-        }
-
-        $this->ssrDispatched = true;
-        $this->ssrResponse = $this->ssrGateway->dispatch($page);
+        return null !== $response ? $response->head : '';
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nytodev\InertiaBundle\Command;
 
+use Nytodev\InertiaBundle\Ssr\BundleDetectorInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -16,16 +17,8 @@ use Symfony\Component\Process\Process;
 )]
 final class StartSsrCommand extends Command
 {
-    /** @var list<string> Relative paths to auto-detect the SSR bundle (resolved from cwd). */
-    private const DETECT_PATHS = [
-        'bootstrap/ssr/ssr.mjs',
-        'public/build/ssr/ssr.mjs',
-        'public/build/ssr/ssr.js',
-    ];
-
     public function __construct(
-        private readonly ?string $ssrBundle = null,
-        private readonly string $cwd = '',
+        private readonly BundleDetectorInterface $bundleDetector,
         private readonly ?Process $process = null,
     ) {
         parent::__construct();
@@ -33,7 +26,7 @@ final class StartSsrCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $bundlePath = $this->resolveBundlePath();
+        $bundlePath = $this->bundleDetector->detect();
 
         if (null === $bundlePath) {
             $output->writeln('<error>SSR bundle not found. Configure inertia.ssr_bundle in your bundle config.</error>');
@@ -61,26 +54,5 @@ final class StartSsrCommand extends Command
         }
 
         return Command::SUCCESS;
-    }
-
-    private function resolveBundlePath(): ?string
-    {
-        if (null !== $this->ssrBundle) {
-            return file_exists($this->ssrBundle) ? $this->ssrBundle : null;
-        }
-
-        $cwd = '' !== $this->cwd ? $this->cwd : getcwd();
-        if (false === $cwd) {
-            return null;
-        }
-
-        foreach (self::DETECT_PATHS as $relative) {
-            $absolute = $cwd.\DIRECTORY_SEPARATOR.$relative;
-            if (file_exists($absolute)) {
-                return $absolute;
-            }
-        }
-
-        return null;
     }
 }
