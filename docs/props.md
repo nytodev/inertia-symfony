@@ -18,7 +18,7 @@ Beyond plain values and closures, the bundle provides several special prop types
 
 Never sent on full renders. Only resolved when the key is explicitly listed in `X-Inertia-Partial-Data`. Use for expensive data only needed on partial reloads (e.g. a detail panel).
 
-`optional()` is an alias for `lazy()` matching the official Inertia v2 API name:
+`optional()` is an alias for `lazy()` matching the official Inertia v3 API name:
 
 ```php
 return $inertia->render('Reports/Show', [
@@ -39,7 +39,7 @@ return $inertia->render('Dashboard', [
 ]);
 ```
 
-> **Scope:** the once-cache is tied to `page.props`. If you navigate to a page that does not have this prop and return, the cache is lost. This is Inertia.js v2 client behaviour, not a server-side limitation.
+> **Scope:** the once-cache is tied to `page.props`. If you navigate to a page that does not have this prop and return, the cache is lost. This is Inertia.js v3 client behaviour, not a server-side limitation.
 
 ## AlwaysProp — always included
 

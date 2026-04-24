@@ -1,6 +1,6 @@
 # Inertia.js Symfony Bundle
 
-Symfony bundle implementing the [Inertia.js](https://inertiajs.com/) v2 server-side protocol — the Symfony equivalent of [`inertiajs/inertia-laravel`](https://github.com/inertiajs/inertia-laravel).
+Symfony bundle implementing the [Inertia.js](https://inertiajs.com/) v3 server-side protocol — the Symfony equivalent of [`inertiajs/inertia-laravel`](https://github.com/inertiajs/inertia-laravel).
 
 [![Tests](https://github.com/nytodev/inertia-bundle/actions/workflows/tests.yml/badge.svg)](https://github.com/nytodev/inertia-bundle/actions/workflows/tests.yml)
 [![Latest Version](https://img.shields.io/packagist/v/nytodev/inertia-bundle.svg?style=flat-square)](https://packagist.org/packages/nytodev/inertia-bundle)
@@ -181,9 +181,10 @@ inertia:
     root_view: base.html.twig   # Root Twig template (default: base.html.twig)
     version: null               # Asset version string — triggers full reload on change
     encrypt_history: false      # Globally encrypt browser history state
-    ssr_enabled: false          # Enable SSR (requires symfony/http-client)
+    expose_shared_prop_keys: true # Expose shared prop keys as top-level `sharedProps` in page object
+    ssr_enabled: false            # Enable SSR (requires symfony/http-client)
     ssr_url: 'http://127.0.0.1:13714'
-    ssr_bundle: null            # Path to SSR JS bundle, auto-detected if null
+    ssr_bundle: null              # Path to SSR JS bundle, auto-detected if null
 ```
 
 ---
