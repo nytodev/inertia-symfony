@@ -1,6 +1,6 @@
 # nytodev/inertia-bundle — Documentation
 
-Symfony bundle implementing the [Inertia.js](https://inertiajs.com/) v2 server-side protocol.
+Symfony bundle implementing the [Inertia.js](https://inertiajs.com/) v3 server-side protocol.
 
 ## Table of contents
 

@@ -46,6 +46,10 @@ inertia:
     # Can be overridden per-render via $inertia->encryptHistory().
     encrypt_history: false
 
+    # Expose shared prop keys as a top-level `sharedProps` field in the page object.
+    # Allows the client to distinguish shared props from page-specific ones.
+    expose_shared_prop_keys: true
+
     # Server-Side Rendering — requires symfony/http-client.
     ssr_enabled: false
     ssr_url: 'http://127.0.0.1:13714'
