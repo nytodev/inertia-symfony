@@ -70,10 +70,13 @@ final class Inertia implements ResetInterface
      * Render an Inertia component. Merges shared props with the given props
      * and returns either an HTML or JSON response based on the request headers.
      *
-     * @param \BackedEnum|\UnitEnum|string $component Component name or enum resolving to a string
+     * @param \BackedEnum|\UnitEnum|string $component            Component name or enum resolving to a string
      * @param array<string, mixed>         $props
+     * @param array<string, mixed>|null    $serializationContext When non-null, props are normalized via
+     *                                                           Symfony Serializer after all prop types are resolved.
+     *                                                           Requires symfony/serializer to be installed.
      */
-    public function render(\BackedEnum|\UnitEnum|string $component, array $props = []): Response
+    public function render(\BackedEnum|\UnitEnum|string $component, array $props = [], ?array $serializationContext = null): Response
     {
         $component = match (true) {
             $component instanceof \BackedEnum => $component->value,
@@ -122,6 +125,7 @@ final class Inertia implements ResetInterface
             $flash,
             $sharedPropKeys,
             $preserveFragment,
+            $serializationContext,
         );
     }
 

@@ -13,6 +13,7 @@ use Nytodev\InertiaBundle\Props\ScrollProp;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Serializer\SerializerInterface;
 use Twig\Environment;
 
 /**
@@ -25,15 +26,17 @@ final class InertiaResponse
     public function __construct(
         private readonly Environment $twig,
         private readonly string $rootView,
+        private readonly ?SerializerInterface $serializer = null,
     ) {
     }
 
     /**
      * Build and return an HTML or JSON response based on the request type.
      *
-     * @param array<string, mixed> $props
-     * @param array<string, mixed> $flash          flash data emitted as top-level page object key (omitted when empty, matching inertia-laravel)
-     * @param list<string>         $sharedPropKeys keys from Inertia::share(); emitted as top-level sharedProps when non-empty
+     * @param array<string, mixed>      $props
+     * @param array<string, mixed>      $flash                flash data emitted as top-level page object key (omitted when empty, matching inertia-laravel)
+     * @param list<string>              $sharedPropKeys       keys from Inertia::share(); emitted as top-level sharedProps when non-empty
+     * @param array<string, mixed>|null $serializationContext when non-null, the full page object is serialized via SerializerInterface after all props are resolved
      */
     public function build(
         string $component,
@@ -46,6 +49,7 @@ final class InertiaResponse
         array $flash = [],
         array $sharedPropKeys = [],
         bool $preserveFragment = false,
+        ?array $serializationContext = null,
     ): Response {
         $only = $this->parseCsv($request->headers->get('X-Inertia-Partial-Data') ?? '');
         $except = $this->parseCsv($request->headers->get('X-Inertia-Partial-Except') ?? '');
@@ -131,6 +135,13 @@ final class InertiaResponse
             $flash,
             $preserveFragment,
         );
+
+        // Optional Symfony Serializer normalization — opt-in via $serializationContext.
+        // Runs on the full page object AFTER all props are resolved and the page is built,
+        // so lazy/defer/once semantics are fully preserved.
+        if (null !== $serializationContext) {
+            $page = $this->serializePage($page, $serializationContext);
+        }
 
         if ($request->headers->has('X-Inertia')) {
             return new JsonResponse($page, 200, [
@@ -515,6 +526,41 @@ final class InertiaResponse
         }
 
         return $page;
+    }
+
+    /**
+     * Serialize the full page object via the Symfony Serializer.
+     *
+     * Merges sensible defaults (circular-reference handler, max-depth, empty-object
+     * preservation) with the caller-supplied context, serializes to JSON, then decodes
+     * back to an array so the result can be passed to JsonResponse or Twig unchanged.
+     *
+     * @param array<string, mixed> $page
+     * @param array<string, mixed> $context
+     *
+     * @return array<string, mixed>
+     */
+    private function serializePage(array $page, array $context): array
+    {
+        if (null === $this->serializer) {
+            throw new \LogicException('A serialization context was passed to Inertia::render() but the symfony/serializer component is not installed or the serializer service is unavailable. Install symfony/serializer or remove the context.');
+        }
+
+        $json = $this->serializer->serialize($page, 'json', array_merge([
+            'json_encode_options' => JsonResponse::DEFAULT_ENCODING_OPTIONS,
+            'circular_reference_handler' => static fn (): mixed => null,
+            'preserve_empty_objects' => true,
+            'enable_max_depth' => true,
+        ], $context));
+
+        $decoded = json_decode($json, true);
+
+        if (!\is_array($decoded)) {
+            throw new \RuntimeException('Symfony Serializer produced invalid JSON for the Inertia page object.');
+        }
+
+        /** @var array<string, mixed> $decoded */
+        return $decoded;
     }
 
     /**

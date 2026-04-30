@@ -46,6 +46,7 @@ services:
         public: false
         arguments:
             $twig: '@twig'
+            $serializer: '@?serializer'
 
     # -------------------------------------------------------------------------
     # Core service: manages shared props and delegates to InertiaResponse.
