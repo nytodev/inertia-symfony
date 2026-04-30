@@ -559,7 +559,7 @@ final class InertiaResponse
             throw new \RuntimeException('Symfony Serializer produced invalid JSON for the Inertia page object.');
         }
 
-        /** @var array<string, mixed> $decoded */
+        /* @var array<string, mixed> $decoded */
         return $decoded;
     }
 
