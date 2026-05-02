@@ -546,7 +546,7 @@ final class InertiaResponse
             throw new \LogicException('A serialization context was passed to Inertia::render() but no normalizer is available. Install symfony/serializer or remove the context.');
         }
 
-        $normalized = $this->normalizer->normalize($page, 'json', \array_merge([
+        $normalized = $this->normalizer->normalize($page, 'json', array_merge([
             'circular_reference_handler' => static fn (): mixed => null,
             'preserve_empty_objects' => true,
             'enable_max_depth' => true,
