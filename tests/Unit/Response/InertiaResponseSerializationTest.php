@@ -33,7 +33,9 @@ final class InertiaResponseSerializationTest extends TestCase
     public function testBuildWithNullContextAndNoSerializerPropsPassThroughUnchanged(): void
     {
         $response = new InertiaResponse($this->twig, 'base.html.twig');
+
         $request = Request::create('/test');
+        $request->headers->set('X-Inertia', 'true');
 
         $result = $response->build(
             component: 'Users/Index',
@@ -45,6 +47,9 @@ final class InertiaResponseSerializationTest extends TestCase
         );
 
         self::assertSame(200, $result->getStatusCode());
+        /** @var array<string, mixed> $data */
+        $data = json_decode((string) $result->getContent(), true);
+        self::assertSame('Alice', $data['props']['name']);
     }
 
     public function testBuildWithContextButNoSerializerThrowsLogicException(): void

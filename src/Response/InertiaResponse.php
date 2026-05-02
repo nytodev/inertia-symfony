@@ -543,7 +543,7 @@ final class InertiaResponse
     private function normalizePage(array $page, array $context): array
     {
         if (null === $this->normalizer) {
-            throw new \LogicException('A serialization context was passed to Inertia::render() but no normalizer is available. Install symfony/serializer or remove the context.');
+            throw new \LogicException('A serialization context was passed to Inertia::render() but no normalizer service is available. Ensure symfony/serializer is installed and framework.serializer is enabled in your config, or remove the context.');
         }
 
         /** @var NormalizerInterface $normalizer */

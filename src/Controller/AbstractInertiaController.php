@@ -35,7 +35,8 @@ abstract class AbstractInertiaController extends AbstractController
      * @param array<string, mixed>      $props
      * @param array<string, mixed>|null $serializationContext When non-null, props are normalized via
      *                                                        Symfony Serializer after all prop types are resolved.
-     *                                                        Requires symfony/serializer to be installed.
+     *                                                        Requires symfony/serializer installed and the Serializer
+     *                                                        service enabled (framework.serializer in your config).
      */
     protected function renderInertia(string $component, array $props = [], ?array $serializationContext = null): Response
     {
