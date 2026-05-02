@@ -546,9 +546,15 @@ final class InertiaResponse
             throw new \LogicException('A serialization context was passed to Inertia::render() but no normalizer service is available. Ensure symfony/serializer is installed and framework.serializer is enabled in your config, or remove the context.');
         }
 
-        /** @var NormalizerInterface $normalizer */
-        $normalizer = $this->normalizer;
-        $normalized = $normalizer->normalize($page, 'json', array_merge([
+        if (!$this->normalizer instanceof NormalizerInterface) {
+            throw new \LogicException(\sprintf(
+                'The injected normalizer service must implement %s, got %s. Ensure symfony/serializer is installed and the Serializer service is properly configured.',
+                NormalizerInterface::class,
+                $this->normalizer::class,
+            ));
+        }
+
+        $normalized = $this->normalizer->normalize($page, 'json', array_merge([
             'circular_reference_handler' => static fn (...$args): mixed => null,
             'preserve_empty_objects' => true,
             'enable_max_depth' => true,
