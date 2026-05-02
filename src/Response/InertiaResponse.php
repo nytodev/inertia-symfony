@@ -26,7 +26,7 @@ final class InertiaResponse
     public function __construct(
         private readonly Environment $twig,
         private readonly string $rootView,
-        private readonly ?NormalizerInterface $normalizer = null,
+        private readonly ?object $normalizer = null,
     ) {
     }
 
@@ -36,7 +36,7 @@ final class InertiaResponse
      * @param array<string, mixed>      $props
      * @param array<string, mixed>      $flash                flash data emitted as top-level page object key (omitted when empty, matching inertia-laravel)
      * @param list<string>              $sharedPropKeys       keys from Inertia::share(); emitted as top-level sharedProps when non-empty
-     * @param array<string, mixed>|null $serializationContext when non-null, the full page object is serialized via SerializerInterface after all props are resolved
+     * @param array<string, mixed>|null $serializationContext when non-null, the fully resolved page array is normalized using the configured NormalizerInterface
      */
     public function build(
         string $component,
@@ -546,8 +546,10 @@ final class InertiaResponse
             throw new \LogicException('A serialization context was passed to Inertia::render() but no normalizer is available. Install symfony/serializer or remove the context.');
         }
 
-        $normalized = $this->normalizer->normalize($page, 'json', array_merge([
-            'circular_reference_handler' => static fn (): mixed => null,
+        /** @var NormalizerInterface $normalizer */
+        $normalizer = $this->normalizer;
+        $normalized = $normalizer->normalize($page, 'json', array_merge([
+            'circular_reference_handler' => static fn (...$args): mixed => null,
             'preserve_empty_objects' => true,
             'enable_max_depth' => true,
         ], $context));
