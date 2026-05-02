@@ -21,6 +21,7 @@ CHANGELOG
  * Added component file existence assertion in `AssertableInertiaPage::component()`
  * Renamed `LazyProp` to `OptionalProp` — `lazy()` alias kept for backwards compatibility
  * Added `expose_shared_prop_keys` configuration option
+ * Added optional Symfony Normalizer support — pass a `$serializationContext` array to `Inertia::render()` or `renderInertia()` to normalize PHP objects (e.g. Doctrine entities) in props via `NormalizerInterface`; requires `symfony/serializer`
 
 2.0.2
 -----
