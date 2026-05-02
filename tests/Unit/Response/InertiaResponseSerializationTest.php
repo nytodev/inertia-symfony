@@ -8,15 +8,15 @@ use Nytodev\InertiaBundle\Response\InertiaResponse;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\Serializer\SerializerInterface;
+use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
 use Twig\Environment;
 
 /**
- * Tests optional Symfony Serializer support in InertiaResponse::build().
+ * Tests optional Symfony Normalizer support in InertiaResponse::build().
  *
- * Serialization is opt-in: it only runs when a non-null $serializationContext
- * is passed to build(). The serializer operates on the full page object AFTER
- * all prop types are resolved. When the serializer service is unavailable and a
+ * Normalization is opt-in: it only runs when a non-null $serializationContext
+ * is passed to build(). The normalizer operates on the full page object AFTER
+ * all prop types are resolved. When the normalizer service is unavailable and a
  * context is passed, a LogicException is thrown.
  */
 final class InertiaResponseSerializationTest extends TestCase
@@ -53,7 +53,7 @@ final class InertiaResponseSerializationTest extends TestCase
         $request = Request::create('/test');
 
         $this->expectException(\LogicException::class);
-        $this->expectExceptionMessageMatches('/symfony\/serializer/i');
+        $this->expectExceptionMessageMatches('/normalizer/i');
 
         $response->build(
             component: 'Users/Index',
@@ -65,14 +65,14 @@ final class InertiaResponseSerializationTest extends TestCase
         );
     }
 
-    public function testBuildWithSerializerAndContextCallsSerializeOnFullPageObject(): void
+    public function testBuildWithSerializerAndContextCallsNormalizeOnFullPageObject(): void
     {
-        /** @var SerializerInterface&MockObject $serializer */
-        $serializer = $this->createMock(SerializerInterface::class);
+        /** @var NormalizerInterface&MockObject $normalizer */
+        $normalizer = $this->createMock(NormalizerInterface::class);
 
-        $serializer
+        $normalizer
             ->expects(self::once())
-            ->method('serialize')
+            ->method('normalize')
             ->with(
                 self::callback(static function (mixed $page): bool {
                     // Full page object is passed — must have component, props, url keys
@@ -83,9 +83,9 @@ final class InertiaResponseSerializationTest extends TestCase
                 'json',
                 self::callback(static fn (array $ctx): bool => isset($ctx['groups']) && ['api'] === $ctx['groups']),
             )
-            ->willReturn('{"component":"Users/Index","props":{"name":"Alice","errors":{}},"url":"/test","version":null}');
+            ->willReturn(['component' => 'Users/Index', 'props' => ['name' => 'Alice', 'errors' => []], 'url' => '/test', 'version' => null]);
 
-        $response = new InertiaResponse($this->twig, 'base.html.twig', $serializer);
+        $response = new InertiaResponse($this->twig, 'base.html.twig', $normalizer);
         $request = Request::create('/test');
 
         $result = $response->build(
@@ -100,16 +100,16 @@ final class InertiaResponseSerializationTest extends TestCase
         self::assertSame(200, $result->getStatusCode());
     }
 
-    public function testBuildWithSerializerAndContextSerializedValuesAppearInJsonResponse(): void
+    public function testBuildWithSerializerAndContextNormalizedValuesAppearInJsonResponse(): void
     {
-        /** @var SerializerInterface&MockObject $serializer */
-        $serializer = $this->createMock(SerializerInterface::class);
+        /** @var NormalizerInterface&MockObject $normalizer */
+        $normalizer = $this->createMock(NormalizerInterface::class);
 
-        $serializer
-            ->method('serialize')
-            ->willReturn('{"component":"Users/Index","props":{"name":"Alice serialized","errors":{}},"url":"/test","version":null}');
+        $normalizer
+            ->method('normalize')
+            ->willReturn(['component' => 'Users/Index', 'props' => ['name' => 'Alice normalized', 'errors' => []], 'url' => '/test', 'version' => null]);
 
-        $response = new InertiaResponse($this->twig, 'base.html.twig', $serializer);
+        $response = new InertiaResponse($this->twig, 'base.html.twig', $normalizer);
 
         $request = Request::create('/test');
         $request->headers->set('X-Inertia', 'true');
@@ -126,19 +126,19 @@ final class InertiaResponseSerializationTest extends TestCase
         self::assertSame(200, $result->getStatusCode());
         /** @var array<string, mixed> $data */
         $data = json_decode((string) $result->getContent(), true);
-        self::assertSame('Alice serialized', $data['props']['name']);
+        self::assertSame('Alice normalized', $data['props']['name']);
     }
 
     public function testBuildWithSerializerButNullContextSerializerNotCalled(): void
     {
-        /** @var SerializerInterface&MockObject $serializer */
-        $serializer = $this->createMock(SerializerInterface::class);
+        /** @var NormalizerInterface&MockObject $normalizer */
+        $normalizer = $this->createMock(NormalizerInterface::class);
 
-        $serializer
+        $normalizer
             ->expects(self::never())
-            ->method('serialize');
+            ->method('normalize');
 
-        $response = new InertiaResponse($this->twig, 'base.html.twig', $serializer);
+        $response = new InertiaResponse($this->twig, 'base.html.twig', $normalizer);
         $request = Request::create('/test');
 
         $result = $response->build(
@@ -153,30 +153,31 @@ final class InertiaResponseSerializationTest extends TestCase
         self::assertSame(200, $result->getStatusCode());
     }
 
-    public function testSerializeDefaultContextMergedWithUserContext(): void
+    public function testNormalizeDefaultContextMergedWithUserContext(): void
     {
-        /** @var SerializerInterface&MockObject $serializer */
-        $serializer = $this->createMock(SerializerInterface::class);
+        /** @var NormalizerInterface&MockObject $normalizer */
+        $normalizer = $this->createMock(NormalizerInterface::class);
 
-        $serializer
+        $normalizer
             ->expects(self::once())
-            ->method('serialize')
+            ->method('normalize')
             ->with(
                 self::anything(),
                 'json',
                 self::callback(static function (array $ctx): bool {
                     // Defaults must be present
-                    return isset($ctx['json_encode_options'])
-                        && isset($ctx['circular_reference_handler'])
+                    return isset($ctx['circular_reference_handler'])
                         && isset($ctx['preserve_empty_objects'])
                         && isset($ctx['enable_max_depth'])
+                        // json_encode_options must NOT be present (no-op in normalize path)
+                        && !isset($ctx['json_encode_options'])
                         // User context is merged on top
                         && isset($ctx['groups']) && ['api'] === $ctx['groups'];
                 }),
             )
-            ->willReturn('{"component":"Users/Index","props":{"errors":{}},"url":"/test","version":null}');
+            ->willReturn(['component' => 'Users/Index', 'props' => ['errors' => []], 'url' => '/test', 'version' => null]);
 
-        $response = new InertiaResponse($this->twig, 'base.html.twig', $serializer);
+        $response = new InertiaResponse($this->twig, 'base.html.twig', $normalizer);
         $request = Request::create('/test');
 
         $response->build(

@@ -13,7 +13,7 @@ use Nytodev\InertiaBundle\Props\ScrollProp;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Serializer\SerializerInterface;
+use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
 use Twig\Environment;
 
 /**
@@ -26,7 +26,7 @@ final class InertiaResponse
     public function __construct(
         private readonly Environment $twig,
         private readonly string $rootView,
-        private readonly ?SerializerInterface $serializer = null,
+        private readonly ?NormalizerInterface $normalizer = null,
     ) {
     }
 
@@ -529,11 +529,11 @@ final class InertiaResponse
     }
 
     /**
-     * Serialize the full page object via the Symfony Serializer.
+     * Normalize the full page object via the Symfony Normalizer.
      *
      * Merges sensible defaults (circular-reference handler, max-depth, empty-object
-     * preservation) with the caller-supplied context, serializes to JSON, then decodes
-     * back to an array so the result can be passed to JsonResponse or Twig unchanged.
+     * preservation) with the caller-supplied context and returns the normalized array
+     * directly — no JSON encode/decode round-trip.
      *
      * @param array<string, mixed> $page
      * @param array<string, mixed> $context
@@ -542,25 +542,21 @@ final class InertiaResponse
      */
     private function serializePage(array $page, array $context): array
     {
-        if (null === $this->serializer) {
-            throw new \LogicException('A serialization context was passed to Inertia::render() but the symfony/serializer component is not installed or the serializer service is unavailable. Install symfony/serializer or remove the context.');
+        if (null === $this->normalizer) {
+            throw new \LogicException('A serialization context was passed to Inertia::render() but no normalizer is available. Install symfony/serializer or remove the context.');
         }
 
-        $json = $this->serializer->serialize($page, 'json', array_merge([
-            'json_encode_options' => JsonResponse::DEFAULT_ENCODING_OPTIONS,
+        $normalized = $this->normalizer->normalize($page, 'json', \array_merge([
             'circular_reference_handler' => static fn (): mixed => null,
             'preserve_empty_objects' => true,
             'enable_max_depth' => true,
         ], $context));
 
-        $decoded = json_decode($json, true);
-
-        if (!\is_array($decoded)) {
-            throw new \RuntimeException('Symfony Serializer produced invalid JSON for the Inertia page object.');
+        if (!\is_array($normalized)) {
+            throw new \RuntimeException('Normalizer did not return an array for the Inertia page object.');
         }
 
-        /* @var array<string, mixed> $decoded */
-        return $decoded;
+        return $normalized;
     }
 
     /**
