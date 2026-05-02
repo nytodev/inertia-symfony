@@ -140,7 +140,7 @@ final class InertiaResponse
         // Runs on the full page object AFTER all props are resolved and the page is built,
         // so lazy/defer/once semantics are fully preserved.
         if (null !== $serializationContext) {
-            $page = $this->serializePage($page, $serializationContext);
+            $page = $this->normalizePage($page, $serializationContext);
         }
 
         if ($request->headers->has('X-Inertia')) {
@@ -540,7 +540,7 @@ final class InertiaResponse
      *
      * @return array<string, mixed>
      */
-    private function serializePage(array $page, array $context): array
+    private function normalizePage(array $page, array $context): array
     {
         if (null === $this->normalizer) {
             throw new \LogicException('A serialization context was passed to Inertia::render() but no normalizer is available. Install symfony/serializer or remove the context.');
