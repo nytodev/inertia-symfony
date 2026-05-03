@@ -547,11 +547,7 @@ final class InertiaResponse
         }
 
         if (!$this->normalizer instanceof NormalizerInterface) {
-            throw new \LogicException(\sprintf(
-                'The injected normalizer service must implement %s, got %s. Ensure symfony/serializer is installed and the Serializer service is properly configured.',
-                NormalizerInterface::class,
-                $this->normalizer::class,
-            ));
+            throw new \LogicException(\sprintf('The injected normalizer service must implement %s, got %s. Ensure symfony/serializer is installed and the Serializer service is properly configured.', NormalizerInterface::class, $this->normalizer::class));
         }
 
         $normalized = $this->normalizer->normalize($page, 'json', array_merge([
