@@ -13,6 +13,7 @@ use Nytodev\InertiaBundle\Props\ScrollProp;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
 use Twig\Environment;
 
 /**
@@ -25,15 +26,17 @@ final class InertiaResponse
     public function __construct(
         private readonly Environment $twig,
         private readonly string $rootView,
+        private readonly ?object $normalizer = null,
     ) {
     }
 
     /**
      * Build and return an HTML or JSON response based on the request type.
      *
-     * @param array<string, mixed> $props
-     * @param array<string, mixed> $flash          flash data emitted as top-level page object key (omitted when empty, matching inertia-laravel)
-     * @param list<string>         $sharedPropKeys keys from Inertia::share(); emitted as top-level sharedProps when non-empty
+     * @param array<string, mixed>      $props
+     * @param array<string, mixed>      $flash                flash data emitted as top-level page object key (omitted when empty, matching inertia-laravel)
+     * @param list<string>              $sharedPropKeys       keys from Inertia::share(); emitted as top-level sharedProps when non-empty
+     * @param array<string, mixed>|null $serializationContext when non-null, the fully resolved page array is normalized using the configured NormalizerInterface
      */
     public function build(
         string $component,
@@ -46,6 +49,7 @@ final class InertiaResponse
         array $flash = [],
         array $sharedPropKeys = [],
         bool $preserveFragment = false,
+        ?array $serializationContext = null,
     ): Response {
         $only = $this->parseCsv($request->headers->get('X-Inertia-Partial-Data') ?? '');
         $except = $this->parseCsv($request->headers->get('X-Inertia-Partial-Except') ?? '');
@@ -131,6 +135,13 @@ final class InertiaResponse
             $flash,
             $preserveFragment,
         );
+
+        // Optional Symfony Serializer normalization — opt-in via $serializationContext.
+        // Runs on the full page object AFTER all props are resolved and the page is built,
+        // so lazy/defer/once semantics are fully preserved.
+        if (null !== $serializationContext) {
+            $page = $this->normalizePage($page, $serializationContext);
+        }
 
         if ($request->headers->has('X-Inertia')) {
             return new JsonResponse($page, 200, [
@@ -515,6 +526,41 @@ final class InertiaResponse
         }
 
         return $page;
+    }
+
+    /**
+     * Normalize the full page object via the Symfony Normalizer.
+     *
+     * Merges sensible defaults (circular-reference handler, max-depth, empty-object
+     * preservation) with the caller-supplied context and returns the normalized array
+     * directly — no JSON encode/decode round-trip.
+     *
+     * @param array<string, mixed> $page
+     * @param array<string, mixed> $context
+     *
+     * @return array<string, mixed>
+     */
+    private function normalizePage(array $page, array $context): array
+    {
+        if (null === $this->normalizer) {
+            throw new \LogicException('A serialization context was passed to Inertia::render() but no normalizer service is available. Ensure symfony/serializer is installed and framework.serializer is enabled in your config, or remove the context.');
+        }
+
+        if (!interface_exists(NormalizerInterface::class) || !$this->normalizer instanceof NormalizerInterface) {
+            throw new \LogicException(\sprintf('The injected normalizer service must implement %s, got %s. Ensure symfony/serializer is installed and the Serializer service is properly configured.', NormalizerInterface::class, $this->normalizer::class));
+        }
+
+        $normalized = $this->normalizer->normalize($page, 'json', array_merge([
+            'circular_reference_handler' => static fn (...$args): mixed => null,
+            'preserve_empty_objects' => true,
+            'enable_max_depth' => true,
+        ], $context));
+
+        if (!\is_array($normalized)) {
+            throw new \RuntimeException('Normalizer did not return an array for the Inertia page object.');
+        }
+
+        return $normalized;
     }
 
     /**
