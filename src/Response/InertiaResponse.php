@@ -546,7 +546,7 @@ final class InertiaResponse
             throw new \LogicException('A serialization context was passed to Inertia::render() but no normalizer service is available. Ensure symfony/serializer is installed and framework.serializer is enabled in your config, or remove the context.');
         }
 
-        if (!$this->normalizer instanceof NormalizerInterface) {
+        if (!interface_exists(NormalizerInterface::class) || !$this->normalizer instanceof NormalizerInterface) {
             throw new \LogicException(\sprintf('The injected normalizer service must implement %s, got %s. Ensure symfony/serializer is installed and the Serializer service is properly configured.', NormalizerInterface::class, $this->normalizer::class));
         }
 

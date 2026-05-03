@@ -33,9 +33,11 @@ abstract class AbstractInertiaController extends AbstractController
      * AbstractController::render() which returns a full Twig HTML response.
      *
      * @param array<string, mixed>      $props
-     * @param array<string, mixed>|null $serializationContext When non-null, props are normalized via
-     *                                                        Symfony Serializer after all prop types are resolved.
-     *                                                        Requires symfony/serializer installed and the Serializer
+     * @param array<string, mixed>|null $serializationContext When non-null, the fully built Inertia page
+     *                                                        payload (component, url, version, props and all
+     *                                                        metadata) is normalized via Symfony Serializer after
+     *                                                        all prop types are resolved. Requires
+     *                                                        symfony/serializer installed and the Serializer
      *                                                        service enabled (framework.serializer in your config).
      */
     protected function renderInertia(string $component, array $props = [], ?array $serializationContext = null): Response
