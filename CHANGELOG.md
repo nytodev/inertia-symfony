@@ -1,6 +1,17 @@
 CHANGELOG
 =========
 
+3.0.2
+-----
+
+ * Fixed page object `url` field now includes `X-Forwarded-Prefix` when the app runs behind a reverse proxy (e.g. Traefik with `stripPrefix`)
+
+3.0.1
+-----
+
+ * Fixed `normalizePage()` — added `interface_exists()` guard before `instanceof NormalizerInterface` to prevent fatal errors when `symfony/serializer` is not installed
+ * Fixed `normalizePage()` — explicit `instanceof` check now throws a descriptive `LogicException` when the injected service does not implement the required interface
+
 3.0.0
 -----
 
@@ -22,6 +33,11 @@ CHANGELOG
  * Renamed `LazyProp` to `OptionalProp` — `lazy()` alias kept for backwards compatibility
  * Added `expose_shared_prop_keys` configuration option
  * Added optional Symfony Normalizer support — pass a `$serializationContext` array to `Inertia::render()` or `renderInertia()` to normalize PHP objects (e.g. Doctrine entities) in props via `NormalizerInterface`; requires `symfony/serializer`
+
+2.0.3
+-----
+
+ * Fixed page object `url` field now includes `X-Forwarded-Prefix` when the app runs behind a reverse proxy (e.g. Traefik with `stripPrefix`)
 
 2.0.2
 -----
