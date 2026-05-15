@@ -4,7 +4,7 @@ CHANGELOG
 3.0.2
 -----
 
- * Fixed page object `url` field now includes `X-Forwarded-Prefix` when the app runs behind a reverse proxy (e.g. Traefik with `stripPrefix`)
+ * Fixed page object `url` field to include `X-Forwarded-Prefix` when the app runs behind a reverse proxy (e.g. Traefik with `stripPrefix`)
 
 3.0.1
 -----

@@ -117,12 +117,10 @@ final class Inertia implements ResetInterface
 
         $sharedPropKeys = $this->exposeSharedPropKeys ? array_keys($this->sharedProps) : [];
 
-        $qs = $request->getQueryString();
-
         return $this->inertiaResponse->build(
             $component,
             $mergedProps,
-            $request->getBaseUrl().$request->getPathInfo().(null !== $qs ? '?'.$qs : ''),
+            $request->getBaseUrl().$request->getPathInfo().(($queryString = $request->getQueryString()) !== null && '' !== $queryString ? '?'.$queryString : ''),
             $this->version,
             $request,
             $clearHistory,

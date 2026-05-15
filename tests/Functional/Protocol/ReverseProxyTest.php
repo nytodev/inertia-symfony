@@ -16,22 +16,16 @@ use Symfony\Component\HttpFoundation\Request;
 final class ReverseProxyTest extends FunctionalTestCase
 {
     private KernelBrowser $client;
-    /** @var string[] */
-    private array $previousTrustedProxies;
-    private int $previousTrustedHeaderSet;
 
     protected function setUp(): void
     {
         parent::setUp();
         $this->client = self::createClient();
-        $this->previousTrustedProxies = Request::getTrustedProxies();
-        $this->previousTrustedHeaderSet = Request::getTrustedHeaderSet();
     }
 
     protected function tearDown(): void
     {
-        // getTrustedHeaderSet() returns -1 when never set; setTrustedProxies() requires int<0,63>
-        Request::setTrustedProxies($this->previousTrustedProxies, min(63, max(0, $this->previousTrustedHeaderSet)));
+        Request::setTrustedProxies([], 0);
         parent::tearDown();
     }
 
@@ -69,10 +63,25 @@ final class ReverseProxyTest extends FunctionalTestCase
 
     public function testUrlWithoutProxyPreservesMultipleQueryParams(): void
     {
-        // Symfony normalizeQueryString() sorts params alphabetically: filter < page < sort
         $this->client->request('GET', '/test?page=2&sort=desc&filter=active', [], [], ['HTTP_X_INERTIA' => 'true']);
         $data = $this->decodeJsonResponse();
         self::assertSame('/test?filter=active&page=2&sort=desc', $data['url']);
+    }
+
+    public function testUrlWithNonEmptyBaseUrlWithoutProxy(): void
+    {
+        // Simulate app mounted under /sub (non-empty getBaseUrl()).
+        // Verifies no URL doubling: getBaseUrl()+getPathInfo() must yield /sub/test, not /sub/sub/test.
+        $this->client->request('GET', '/sub/test?page=2', [], [], [
+            'HTTP_X_INERTIA' => 'true',
+            'SCRIPT_NAME' => '/sub/index.php',
+            'SCRIPT_FILENAME' => '/var/www/html/sub/public/index.php',
+            'PHP_SELF' => '/sub/index.php',
+        ]);
+
+        self::assertResponseIsSuccessful();
+        $data = $this->decodeJsonResponse();
+        self::assertSame('/sub/test?page=2', $data['url']);
     }
 
     // -------------------------------------------------------------------------
@@ -133,7 +142,6 @@ final class ReverseProxyTest extends FunctionalTestCase
     {
         Request::setTrustedProxies(['127.0.0.1'], Request::HEADER_X_FORWARDED_PREFIX);
 
-        // Symfony normalizeQueryString() sorts params alphabetically: filter < page < sort
         $this->client->request('GET', '/test?page=2&sort=desc&filter=active', [], [], [
             'HTTP_X_INERTIA' => 'true',
             'HTTP_X_FORWARDED_PREFIX' => '/app',
