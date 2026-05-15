@@ -1,6 +1,26 @@
 CHANGELOG
 =========
 
+2.0.3
+-----
+
+ * Fixed page object `url` field to include `X-Forwarded-Prefix` when the app runs behind a reverse proxy (e.g. Traefik with `stripPrefix`)
+
+2.0.2
+-----
+
+ * Fixed `symfony/twig-bundle` added as hard dependency — fixes DI compilation failure (`service "inertia.response" has a dependency on a non-existent service "twig"`) when installing in a minimal Symfony skeleton without Twig pre-installed
+
+2.0.1
+-----
+
+ * Added Dependabot for weekly Composer and GitHub Actions updates
+ * Added `.gitattributes` to exclude dev files from Packagist archives
+ * Added `CONTRIBUTING.md` and `CODE_OF_CONDUCT.md`
+ * Updated `SECURITY.md`
+ * Added Packagist keywords and homepage to `composer.json`
+ * Bumped `phpstan/phpstan` to `^2.1`
+
 2.0.0
 -----
 
