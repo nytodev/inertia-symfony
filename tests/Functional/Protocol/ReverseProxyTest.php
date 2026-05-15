@@ -73,10 +73,10 @@ final class ReverseProxyTest extends FunctionalTestCase
         // Simulate app mounted under /sub (non-empty getBaseUrl()).
         // Verifies no URL doubling: getBaseUrl()+getPathInfo() must yield /sub/test, not /sub/sub/test.
         $this->client->request('GET', '/sub/test?page=2', [], [], [
-            'HTTP_X_INERTIA'  => 'true',
-            'SCRIPT_NAME'     => '/sub/index.php',
+            'HTTP_X_INERTIA' => 'true',
+            'SCRIPT_NAME' => '/sub/index.php',
             'SCRIPT_FILENAME' => '/var/www/html/sub/public/index.php',
-            'PHP_SELF'        => '/sub/index.php',
+            'PHP_SELF' => '/sub/index.php',
         ]);
 
         self::assertResponseIsSuccessful();
