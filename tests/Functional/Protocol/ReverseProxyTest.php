@@ -65,7 +65,23 @@ final class ReverseProxyTest extends FunctionalTestCase
     {
         $this->client->request('GET', '/test?page=2&sort=desc&filter=active', [], [], ['HTTP_X_INERTIA' => 'true']);
         $data = $this->decodeJsonResponse();
-        self::assertSame('/test?page=2&sort=desc&filter=active', $data['url']);
+        self::assertSame('/test?filter=active&page=2&sort=desc', $data['url']);
+    }
+
+    public function testUrlWithNonEmptyBaseUrlWithoutProxy(): void
+    {
+        // Simulate app mounted under /sub (non-empty getBaseUrl()).
+        // Verifies no URL doubling: getBaseUrl()+getPathInfo() must yield /sub/test, not /sub/sub/test.
+        $this->client->request('GET', '/sub/test?page=2', [], [], [
+            'HTTP_X_INERTIA'  => 'true',
+            'SCRIPT_NAME'     => '/sub/index.php',
+            'SCRIPT_FILENAME' => '/var/www/html/sub/public/index.php',
+            'PHP_SELF'        => '/sub/index.php',
+        ]);
+
+        self::assertResponseIsSuccessful();
+        $data = $this->decodeJsonResponse();
+        self::assertSame('/sub/test?page=2', $data['url']);
     }
 
     // -------------------------------------------------------------------------
@@ -132,7 +148,7 @@ final class ReverseProxyTest extends FunctionalTestCase
         ]);
 
         $data = $this->decodeJsonResponse();
-        self::assertSame('/app/test?page=2&sort=desc&filter=active', $data['url']);
+        self::assertSame('/app/test?filter=active&page=2&sort=desc', $data['url']);
     }
 
     public function testUntrustedProxyHeaderIsIgnored(): void
