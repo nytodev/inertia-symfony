@@ -81,12 +81,10 @@ final class Inertia implements ResetInterface
             $this->consumeErrors($request);
         }
 
-        $qs = $request->getQueryString();
-
         return $this->inertiaResponse->build(
             $component,
             $mergedProps,
-            $request->getBaseUrl().$request->getPathInfo().(null !== $qs ? '?'.$qs : ''),
+            $request->getBaseUrl().$request->getRequestUri(),
             $this->version,
             $request,
             $clearHistory,
