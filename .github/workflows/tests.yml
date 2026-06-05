@@ -46,9 +46,20 @@ jobs:
         with:
           timeout_minutes: 5
           max_attempts: 5
-          command: composer update --${{ matrix.stability }} --no-interaction
-        env:
-          SYMFONY_REQUIRE: ${{ matrix.symfony }}.*
+          command: >-
+            composer update --${{ matrix.stability }} --no-interaction -W
+            "symfony/browser-kit:${{ matrix.symfony }}.*"
+            "symfony/config:${{ matrix.symfony }}.*"
+            "symfony/dependency-injection:${{ matrix.symfony }}.*"
+            "symfony/framework-bundle:${{ matrix.symfony }}.*"
+            "symfony/http-client:${{ matrix.symfony }}.*"
+            "symfony/http-foundation:${{ matrix.symfony }}.*"
+            "symfony/http-kernel:${{ matrix.symfony }}.*"
+            "symfony/process:${{ matrix.symfony }}.*"
+            "symfony/serializer:${{ matrix.symfony }}.*"
+            "symfony/twig-bridge:${{ matrix.symfony }}.*"
+            "symfony/twig-bundle:${{ matrix.symfony }}.*"
+            "symfony/yaml:${{ matrix.symfony }}.*"
 
       - name: PHPStan (src/)
         run: vendor/bin/phpstan analyse src/ --level=8 --no-progress
@@ -84,9 +95,20 @@ jobs:
         with:
           timeout_minutes: 5
           max_attempts: 5
-          command: composer update --prefer-stable --no-interaction
-        env:
-          SYMFONY_REQUIRE: "8.0.*"
+          command: >-
+            composer update --prefer-stable --no-interaction -W
+            "symfony/browser-kit:8.0.*"
+            "symfony/config:8.0.*"
+            "symfony/dependency-injection:8.0.*"
+            "symfony/framework-bundle:8.0.*"
+            "symfony/http-client:8.0.*"
+            "symfony/http-foundation:8.0.*"
+            "symfony/http-kernel:8.0.*"
+            "symfony/process:8.0.*"
+            "symfony/serializer:8.0.*"
+            "symfony/twig-bridge:8.0.*"
+            "symfony/twig-bundle:8.0.*"
+            "symfony/yaml:8.0.*"
 
       - name: PHPUnit with coverage
         run: vendor/bin/phpunit --coverage-text --coverage-clover=coverage/clover.xml
