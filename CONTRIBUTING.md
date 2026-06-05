@@ -16,7 +16,7 @@ composer install
 |------|--------------|
 | Bug fix | `2.x` (oldest maintained branch) |
 | New feature | `2.x` |
-| Breaking change | Not accepted on maintained branches |
+| Breaking change | Not accepted on maintained branches |:sparkles: feat(response): add optional Symfony Serializer normalization for props.
 
 Always create a topic branch from the correct base:
 

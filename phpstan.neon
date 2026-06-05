@@ -3,8 +3,6 @@ parameters:
     paths:
         - src
 
-    phpVersion: 80100
-
     reportUnmatchedIgnoredErrors: false
 
     ignoreErrors:
