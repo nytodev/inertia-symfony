@@ -163,7 +163,9 @@ symfony-inertia-bundle/
 │   ├── Response/
 │   │   └── InertiaResponse.php ← builds page object, handles HTML vs JSON
 │   ├── EventListener/
-│   │   └── InertiaListener.php ← kernel.request (detect, version check) + kernel.response (302→303)
+│   │   ├── InertiaListener.php ← kernel.request (detect, version check) + kernel.response (302→303)
+│   │   ├── InertiaExceptionListener.php ← kernel.exception → handleExceptionsUsing() callback
+│   │   └── InertiaValidationListener.php ← kernel.exception → ValidationFailedException → errors + 303 back
 │   ├── Props/
 │   │   ├── AlwaysProp.php
 │   │   ├── LazyProp.php

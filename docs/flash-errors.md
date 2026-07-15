@@ -57,6 +57,33 @@ On the next `GET /register`, `page.props.errors` will contain:
 { "email": "This email is already taken.", "password": "Too short." }
 ```
 
+### Automatic interception of MapRequestPayload / MapQueryString
+
+> Requires `symfony/validator`.
+
+When a controller argument mapped with `#[MapRequestPayload]` or `#[MapQueryString]` fails validation, Symfony throws a 422 `HttpException` wrapping a `ValidationFailedException` — before the controller runs. On Inertia requests (`X-Inertia` header present), the bundle intercepts it automatically:
+
+1. Each violation is converted to one message per field (first message wins, like Laravel).
+2. The errors are stored in the session.
+3. A `303 See Other` redirect is returned to the `Referer` (or the current URL as fallback).
+4. The next render injects them as `page.props.errors`.
+
+No code needed — this matches the [Inertia validation flow](https://inertiajs.com/docs/v3/the-basics/validation) out of the box:
+
+```php
+#[Route('/users', methods: ['POST'])]
+public function create(#[MapRequestPayload] CreateUserPayload $payload, Inertia $inertia): Response
+{
+    // Only reached when the payload is valid.
+}
+```
+
+A `ValidationFailedException` thrown manually from a controller is intercepted the same way. Non-Inertia requests are left untouched (Symfony's 422 behavior is preserved).
+
+> Without `symfony/validator`, denormalization type errors surface as a `PartialDenormalizationException` that the bundle does not convert — the interception is inert. Install the validator to use `#[MapRequestPayload]` with Inertia forms.
+
+To opt out for a specific case, register your own `kernel.exception` listener with a priority higher than 16 and set a response before the bundle does.
+
 ### Named error bags
 
 Group errors from multiple forms on the same page using named bags:

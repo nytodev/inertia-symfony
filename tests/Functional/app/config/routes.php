@@ -147,6 +147,18 @@ return static function (RoutingConfigurator $routes): void {
     $routes->add('test_shared_props_empty', '/test/shared-props-empty')
         ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'sharedPropsEmpty']);
 
+    $routes->add('test_map_request_payload_form', '/test/map-request-payload')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'mapRequestPayloadForm'])
+        ->methods(['GET']);
+
+    $routes->add('test_map_request_payload_submit', '/test/map-request-payload')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'mapRequestPayloadSubmit'])
+        ->methods(['POST']);
+
+    $routes->add('test_throw_validation_failed', '/test/throw-validation-failed')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'throwValidationFailed'])
+        ->methods(['POST']);
+
     $routes->add('test_throw_not_found', '/test/throw-not-found')
         ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'throwNotFound']);
 
