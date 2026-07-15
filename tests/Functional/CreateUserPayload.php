@@ -10,7 +10,6 @@ final class CreateUserPayload
 {
     public function __construct(
         #[Assert\NotBlank]
-        #[Assert\Email]
         public readonly string $email = '',
         #[Assert\Positive]
         public readonly int $age = 0,
