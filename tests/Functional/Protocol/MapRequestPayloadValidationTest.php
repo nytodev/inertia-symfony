@@ -81,6 +81,43 @@ final class MapRequestPayloadValidationTest extends FunctionalTestCase
     }
 
     // -------------------------------------------------------------------------
+    // cross-origin or malformed Referer → never used as redirect target
+    // -------------------------------------------------------------------------
+
+    public function testInvalidPayloadWithCrossOriginRefererRedirectsToCurrentUrl(): void
+    {
+        $this->submitInvalidPayload(referer: 'http://evil.example.com/phishing');
+
+        self::assertResponseStatusCodeSame(303);
+        self::assertSame(
+            'http://localhost/test/map-request-payload',
+            $this->client->getResponse()->headers->get('Location'),
+        );
+    }
+
+    public function testInvalidPayloadWithSchemeRelativeRefererRedirectsToCurrentUrl(): void
+    {
+        $this->submitInvalidPayload(referer: '//evil.example.com/phishing');
+
+        self::assertResponseStatusCodeSame(303);
+        self::assertSame(
+            'http://localhost/test/map-request-payload',
+            $this->client->getResponse()->headers->get('Location'),
+        );
+    }
+
+    public function testInvalidPayloadWithRelativePathRefererIsHonored(): void
+    {
+        $this->submitInvalidPayload(referer: '/test/map-request-payload?step=2');
+
+        self::assertResponseStatusCodeSame(303);
+        self::assertSame(
+            '/test/map-request-payload?step=2',
+            $this->client->getResponse()->headers->get('Location'),
+        );
+    }
+
+    // -------------------------------------------------------------------------
     // X-Inertia-Error-Bag header → errors wrapped under the bag name
     // -------------------------------------------------------------------------
 

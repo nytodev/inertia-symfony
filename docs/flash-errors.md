@@ -65,7 +65,7 @@ When a controller argument mapped with `#[MapRequestPayload]` or `#[MapQueryStri
 
 1. Each violation is converted to one message per field (first message wins, like Laravel).
 2. The errors are stored in the session.
-3. A `303 See Other` redirect is returned to the `Referer` (or the current URL as fallback).
+3. A `303 See Other` redirect is returned to the `Referer` — only same-host URLs and relative paths are honored (open-redirect protection); anything else falls back to the current URL.
 4. The next render injects them as `page.props.errors`.
 
 No code needed — this matches the [Inertia validation flow](https://inertiajs.com/docs/v3/the-basics/validation) out of the box:
@@ -80,7 +80,7 @@ public function create(#[MapRequestPayload] CreateUserPayload $payload, Inertia 
 
 A `ValidationFailedException` thrown manually from a controller is intercepted the same way. Non-Inertia requests are left untouched (Symfony's 422 behavior is preserved).
 
-> Without `symfony/validator`, denormalization type errors surface as a `PartialDenormalizationException` that the bundle does not convert — the interception is inert. Install the validator to use `#[MapRequestPayload]` with Inertia forms.
+> Without `symfony/validator`, the listener is not registered at all (its definition is removed at compile time), and denormalization type errors surface as a `PartialDenormalizationException` that the bundle does not convert. Install the validator to use `#[MapRequestPayload]` with Inertia forms.
 
 To disable the interception globally, set `inertia.intercept_validation_errors: false` — the listener is then removed from the container and Symfony's default 422 behavior applies everywhere. To opt out for a specific case only, register your own `kernel.exception` listener with a priority higher than 16 and set a response before the bundle does.
 

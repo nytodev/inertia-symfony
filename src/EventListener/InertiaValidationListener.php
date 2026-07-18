@@ -52,12 +52,32 @@ final class InertiaValidationListener
         $this->inertia->errors($this->firstMessagePerField($validationException->getViolations()));
 
         $target = $request->headers->get('referer');
-        if (null === $target || '' === $target) {
+        if (null === $target || '' === $target || !$this->isSafeRedirectTarget($target, $request->getHost())) {
             $target = $request->getUri();
         }
 
         $event->setResponse(new RedirectResponse($target, Response::HTTP_SEE_OTHER));
         $event->allowCustomResponseCode();
+    }
+
+    /**
+     * The Referer header is client-controlled: honoring it blindly as redirect
+     * target is an open-redirect vector (same class as CVE-2017-16652 in
+     * Security\Http). Only same-host absolute URLs and relative paths pass.
+     */
+    private function isSafeRedirectTarget(string $target, string $requestHost): bool
+    {
+        $host = parse_url($target, \PHP_URL_HOST);
+
+        if (false === $host) {
+            return false;
+        }
+
+        if (null === $host) {
+            return str_starts_with($target, '/') && !str_starts_with($target, '//');
+        }
+
+        return 0 === strcasecmp($host, $requestHost);
     }
 
     /**
