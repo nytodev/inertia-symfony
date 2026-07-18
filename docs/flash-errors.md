@@ -82,7 +82,7 @@ A `ValidationFailedException` thrown manually from a controller is intercepted t
 
 > Without `symfony/validator`, denormalization type errors surface as a `PartialDenormalizationException` that the bundle does not convert — the interception is inert. Install the validator to use `#[MapRequestPayload]` with Inertia forms.
 
-To opt out for a specific case, register your own `kernel.exception` listener with a priority higher than 16 and set a response before the bundle does.
+To disable the interception globally, set `inertia.intercept_validation_errors: false` — the listener is then removed from the container and Symfony's default 422 behavior applies everywhere. To opt out for a specific case only, register your own `kernel.exception` listener with a priority higher than 16 and set a response before the bundle does.
 
 ### Named error bags
 

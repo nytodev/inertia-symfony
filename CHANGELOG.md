@@ -1,6 +1,12 @@
 CHANGELOG
 =========
 
+3.1.0
+-----
+
+ * Added `intercept_validation_errors` config option (default `true`) — set to `false` to remove the validation listener from the container and keep Symfony's default 422 behavior on Inertia requests
+ * Added `InertiaValidationListener` — automatically converts `ValidationFailedException` (thrown by `#[MapRequestPayload]` / `#[MapQueryString]` or manually) into the Inertia error flow on `X-Inertia` requests: one message per field (first violation wins), errors stored in session, `303 See Other` redirect back to the `Referer` (current URL as fallback), errors injected as the `errors` prop on the next render. Requires `symfony/validator`; inert when absent. Non-Inertia requests keep Symfony's default 422 behavior
+
 3.0.2
 -----
 
