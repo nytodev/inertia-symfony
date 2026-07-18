@@ -53,6 +53,10 @@ final class InertiaBundle extends AbstractBundle
             ->arg('$pagePaths', $config['pages']['paths'])
             ->arg('$pageExtensions', $config['pages']['extensions']);
 
+        if (!$config['intercept_validation_errors']) {
+            $builder->removeDefinition('inertia.validation_listener');
+        }
+
         // BundleDetector is always registered: used by StartSsrCommand and HttpSsrGateway.
         $services->get('inertia.ssr_bundle_detector')
             ->arg('$ssrBundle', $config['ssr_bundle'])
