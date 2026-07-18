@@ -155,6 +155,10 @@ return static function (RoutingConfigurator $routes): void {
         ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'mapRequestPayloadSubmit'])
         ->methods(['POST']);
 
+    $routes->add('test_map_query_string_search', '/test/map-query-string')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'mapQueryStringSearch'])
+        ->methods(['GET']);
+
     $routes->add('test_throw_validation_failed', '/test/throw-validation-failed')
         ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'throwValidationFailed'])
         ->methods(['POST']);

@@ -13,6 +13,7 @@ use Nytodev\InertiaBundle\Props\ScrollProp;
 use Nytodev\InertiaBundle\Service\Inertia;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Attribute\MapQueryString;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Validator\ConstraintViolation;
@@ -360,6 +361,11 @@ final class TestController
     public function mapRequestPayloadSubmit(#[MapRequestPayload] CreateUserPayload $payload): Response
     {
         return new RedirectResponse('/test/validation-errors-target', 303);
+    }
+
+    public function mapQueryStringSearch(#[MapQueryString] SearchQuery $query): Response
+    {
+        return $this->inertia->render('TestComponent', ['term' => $query->term]);
     }
 
     public function throwValidationFailed(): Response
