@@ -155,6 +155,11 @@ return static function (RoutingConfigurator $routes): void {
         ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'mapRequestPayloadSubmit'])
         ->methods(['POST']);
 
+    $routes->add('test_map_request_payload_stateless', '/test/map-request-payload-stateless')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'mapRequestPayloadSubmit'])
+        ->defaults(['_stateless' => true])
+        ->methods(['POST']);
+
     $routes->add('test_map_query_string_search', '/test/map-query-string')
         ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'mapQueryStringSearch'])
         ->methods(['GET']);

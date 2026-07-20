@@ -134,6 +134,26 @@ final class MapRequestPayloadValidationTest extends FunctionalTestCase
     }
 
     // -------------------------------------------------------------------------
+    // stateless route → session must not be touched, Symfony returns 422
+    // -------------------------------------------------------------------------
+
+    public function testInvalidPayloadOnStatelessRouteKeepsSymfony422(): void
+    {
+        $this->client->catchExceptions(true);
+        $this->client->request(
+            'POST',
+            '/test/map-request-payload-stateless',
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json', 'HTTP_REFERER' => 'http://localhost/test/map-request-payload'],
+            (string) json_encode(['email' => '', 'age' => -1, 'code' => 'abc']),
+        );
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertResponseNotHasHeader('Location');
+    }
+
+    // -------------------------------------------------------------------------
     // non-Inertia request → untouched, Symfony returns 422
     // -------------------------------------------------------------------------
 

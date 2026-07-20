@@ -43,6 +43,15 @@ final class InertiaValidationListener
             return;
         }
 
+        // Errors only survive the redirect through the session — without one,
+        // Inertia::errors() falls back to in-memory storage that the next
+        // request never sees. On _stateless routes the session exists but must
+        // not be touched (UnexpectedSessionUsageException in debug). In both
+        // cases, let Symfony return its default 4xx instead.
+        if (!$request->hasSession() || $request->attributes->get('_stateless', false)) {
+            return;
+        }
+
         $validationException = $this->unwrapValidationException($event->getThrowable());
 
         if (null === $validationException) {
