@@ -44,7 +44,7 @@ inertia:
 
     # Convert ValidationFailedException (MapRequestPayload/MapQueryString or manual
     # throw) on Inertia requests into the error flow: errors in session + 303 back.
-    # Set to false to keep Symfony's default 422 behavior. Requires symfony/validator.
+    # Set to false to keep Symfony's default 4xx behavior. Requires symfony/validator.
     intercept_validation_errors: true
 
     # Globally encrypt browser history state for all Inertia responses.
