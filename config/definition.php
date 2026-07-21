@@ -18,7 +18,7 @@ return static function (DefinitionConfigurator $definition): void {
             ->end()
             ->booleanNode('intercept_validation_errors')
                 ->defaultTrue()
-                ->info('When true, ValidationFailedException (MapRequestPayload/MapQueryString or manual throw) on Inertia requests is converted into the error flow: errors in session + 303 redirect back. Set to false to keep Symfony\'s default 422 behavior.')
+                ->info('When true, ValidationFailedException (MapRequestPayload/MapQueryString or manual throw) on Inertia requests is converted into the error flow: errors in session + 303 redirect back. Set to false to keep Symfony\'s default 4xx behavior.')
             ->end()
             ->booleanNode('encrypt_history')
                 ->defaultFalse()
