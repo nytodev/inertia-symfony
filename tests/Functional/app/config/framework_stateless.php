@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 
+/*
+ * Framework configuration without session support.
+ * Loaded only by StatelessKernel.
+ */
 return static function (ContainerConfigurator $container): void {
     $container->extension('framework', [
         'secret' => 'test-secret',
         'test' => true,
-        'session' => ['handler_id' => null, 'storage_factory_id' => 'session.storage.factory.mock_file'],
+        'session' => ['enabled' => false],
         'router' => ['utf8' => true],
         'serializer' => ['enabled' => true],
         'validation' => ['enabled' => true],
